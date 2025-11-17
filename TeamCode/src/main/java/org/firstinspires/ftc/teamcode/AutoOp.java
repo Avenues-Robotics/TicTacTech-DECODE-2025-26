@@ -3,14 +3,19 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+
 @SuppressWarnings("unused")
 @Autonomous(name = "AutoOp")
 public class AutoOp extends LinearOpMode {
 
     DcMotor fl, fr, bl, br;
+    DcMotor intakeMotor, outtakeMotor;
 
     public static final double DRIVE_SPEED = 0.6;
     public static final double TURN_SPEED = 0.6;
+
+    public static final double INTAKE_SPEED = 0.7;
+    public static final double OUTTAKE_SPEED = 0.7;
 
     @Override
     public void runOpMode() {
@@ -19,6 +24,9 @@ public class AutoOp extends LinearOpMode {
         fr = hardwareMap.get(DcMotor.class, "frontRight");
         bl = hardwareMap.get(DcMotor.class, "backLeft");
         br = hardwareMap.get(DcMotor.class, "backRight");
+
+        intakeMotor = hardwareMap.get(DcMotor.class, "intake");
+        outtakeMotor = hardwareMap.get(DcMotor.class, "outtake");
 
         fr.setDirection(DcMotor.Direction.REVERSE);
         br.setDirection(DcMotor.Direction.REVERSE);
@@ -34,13 +42,15 @@ public class AutoOp extends LinearOpMode {
         br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         waitForStart();
-
         if (!opModeIsActive()) return;
 
         drive(0, 1, 1000, DRIVE_SPEED);
         drive(1, 0, 600, DRIVE_SPEED);
         rotate(90, TURN_SPEED);
         drive(0, -1, 900, DRIVE_SPEED);
+
+        runIntake(INTAKE_SPEED, 2000);  // run intake for 2 seconds
+        runOuttake(OUTTAKE_SPEED, 1500); // run outtake for 1.5 seconds
     }
 
     public void drive(double x, double y, int ticks, double speed) {
@@ -64,7 +74,7 @@ public class AutoOp extends LinearOpMode {
         bl.setPower(speed);
         br.setPower(speed);
 
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {idle();}
+        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) { idle(); }
 
         stopAll();
     }
@@ -88,9 +98,21 @@ public class AutoOp extends LinearOpMode {
         bl.setPower(speed);
         br.setPower(speed);
 
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {idle();}
+        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) { idle(); }
 
         stopAll();
+    }
+
+    public void runIntake(double power, long durationMs) {
+        intakeMotor.setPower(power);
+        sleep(durationMs);
+        intakeMotor.setPower(0);
+    }
+
+    public void runOuttake(double power, long durationMs) {
+        outtakeMotor.setPower(power);
+        sleep(durationMs);
+        outtakeMotor.setPower(0);
     }
 
     public void stopAll() {
