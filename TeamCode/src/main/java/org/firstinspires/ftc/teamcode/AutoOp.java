@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-
+@SuppressWarnings("unused")
 @Autonomous(name = "AutoOp")
 public class AutoOp extends LinearOpMode {
 
@@ -64,7 +64,7 @@ public class AutoOp extends LinearOpMode {
         bl.setPower(speed);
         br.setPower(speed);
 
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {}
+        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {idle();}
 
         stopAll();
     }
@@ -88,7 +88,7 @@ public class AutoOp extends LinearOpMode {
         bl.setPower(speed);
         br.setPower(speed);
 
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {}
+        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) {idle();}
 
         stopAll();
     }
