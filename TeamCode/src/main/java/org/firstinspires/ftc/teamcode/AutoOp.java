@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 public class AutoOp extends LinearOpMode {
 
     DcMotor fl, fr, bl, br;
-    DcMotor intakeMotor, outtakeMotor;
+    DcMotor intakeMotor, outtakeL, outtakeR;
 
     public static final double DRIVE_SPEED = 0.6;
     public static final double TURN_SPEED = 0.6;
@@ -26,7 +26,8 @@ public class AutoOp extends LinearOpMode {
         br = hardwareMap.get(DcMotor.class, "backRight");
 
         intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        outtakeMotor = hardwareMap.get(DcMotor.class, "outtake");
+        outtakeL = hardwareMap.get(DcMotor.class, "outtakeL");
+        outtakeR = hardwareMap.get(DcMotor.class, "outtakeR");
 
         fr.setDirection(DcMotor.Direction.REVERSE);
         br.setDirection(DcMotor.Direction.REVERSE);
@@ -110,9 +111,11 @@ public class AutoOp extends LinearOpMode {
     }
 
     public void runOuttake(double power, long durationMs) {
-        outtakeMotor.setPower(power);
+        outtakeL.setPower(power);
+        outtakeR.setPower(-power);
         sleep(durationMs);
-        outtakeMotor.setPower(0);
+        outtakeL.setPower(0);
+        outtakeR.setPower(0);
     }
 
     public void stopAll() {
