@@ -21,7 +21,7 @@ public class DriveTeleOp extends LinearOpMode {
     public static double NORMAL_MODE_SPEED = 0.4;
 
     public static double INTAKE_SPEED  = 0.4; //power
-    public static double OUTTAKE_SPEED = 650; //tps
+    public static double OUTTAKE_SPEED = 590; //tps
 
     // Toggle state
     private boolean fastMode = false;
