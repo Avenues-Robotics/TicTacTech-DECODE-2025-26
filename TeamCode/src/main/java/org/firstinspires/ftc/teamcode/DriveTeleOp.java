@@ -53,6 +53,10 @@ public class DriveTeleOp extends LinearOpMode {
         bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
+        intake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        outtakeR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        outtakeL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
         waitForStart();
 
         while (opModeIsActive()) {
