@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 public class DriveTeleOp extends LinearOpMode {
 
     // Drivetrain motors
-    private DcMotor fl, fr, bl, br;
+    private DcMotorEx fl, fr, bl, br;
 
     // Mechanisms
     private DcMotorEx intake, outtakeL, outtakeR;
@@ -101,8 +101,6 @@ public class DriveTeleOp extends LinearOpMode {
             if (gamepad2.a){
                 outtakeL.setVelocity(OUTTAKE_SPEED);
                 outtakeR.setVelocity(-OUTTAKE_SPEED);
-//                outtakeL.setPower(OUTTAKE_SPEED);
-//                outtakeR.setPower(-OUTTAKE_SPEED);
             }
             else if (gamepad2.b){
                 outtakeL.setPower(-1);

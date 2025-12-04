@@ -20,10 +20,10 @@ public class AutoOp extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-        fl = hardwareMap.get(DcMotor.class, "frontLeft");
-        fr = hardwareMap.get(DcMotor.class, "frontRight");
-        bl = hardwareMap.get(DcMotor.class, "backLeft");
-        br = hardwareMap.get(DcMotor.class, "backRight");
+        fl = hardwareMap.get(DcMotor.class, "fL");
+        fr = hardwareMap.get(DcMotor.class, "fR");
+        bl = hardwareMap.get(DcMotor.class, "bL");
+        br = hardwareMap.get(DcMotor.class, "bR");
 
         intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         outtakeL = hardwareMap.get(DcMotor.class, "outtakeL");
