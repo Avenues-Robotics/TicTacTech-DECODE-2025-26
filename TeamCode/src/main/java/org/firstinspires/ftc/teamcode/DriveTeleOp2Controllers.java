@@ -66,6 +66,16 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             }
             if (gamepad1.right_trigger < 0.1) triggerHeld = false;
 
+            try {
+                if (fastMode) {
+                    gamepad1.setLedColor(0, 0, 255, 0); // blue for fast
+                } else {
+                    gamepad1.setLedColor(255, 0, 0, 0); // red for normal
+                }
+            } catch (Exception e) {
+                // dont want it breaking the entire script if it fails or we dont use a ps4/5 controller. (this is an experimental feature)
+            }
+
             double y = expo(gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
