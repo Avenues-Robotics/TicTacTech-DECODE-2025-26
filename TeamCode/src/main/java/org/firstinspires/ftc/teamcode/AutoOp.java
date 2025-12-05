@@ -3,125 +3,129 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 @SuppressWarnings("unused")
-@Autonomous(name = "AutoOp")
+@Autonomous(name = "AutoOp", group = "Main")
 public class AutoOp extends LinearOpMode {
 
-    DcMotor fl, fr, bl, br;
-    DcMotor intakeMotor, outtakeL, outtakeR;
+    private DcMotorEx fl, fr, bl, br;
+    private DcMotorEx intake, outtakeL, outtakeR;
 
-    public static final double DRIVE_SPEED = 0.6;
-    public static final double TURN_SPEED = 0.6;
+    public static double DRIVE_SPEED = 0.6;
+    public static double TURN_SPEED = 0.6;
 
-    public static final double INTAKE_SPEED = 0.7;
-    public static final double OUTTAKE_SPEED = 0.7;
+    public static double INTAKE_POWER = 0.4;
+    public static double OUTTAKE_TPS  = 590;
+
+    private static final double TICKS_PER_REV = 537.6;
+    private static final double WHEEL_DIAMETER_IN = 4.0;
+    private static final double TPI = TICKS_PER_REV / (Math.PI * WHEEL_DIAMETER_IN);
 
     @Override
     public void runOpMode() {
 
-        fl = hardwareMap.get(DcMotor.class, "fL");
-        fr = hardwareMap.get(DcMotor.class, "fR");
-        bl = hardwareMap.get(DcMotor.class, "bL");
-        br = hardwareMap.get(DcMotor.class, "bR");
+        fl = hardwareMap.get(DcMotorEx.class, "fL");
+        fr = hardwareMap.get(DcMotorEx.class, "fR");
+        bl = hardwareMap.get(DcMotorEx.class, "bL");
+        br = hardwareMap.get(DcMotorEx.class, "bR");
 
-        intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        outtakeL = hardwareMap.get(DcMotor.class, "outtakeL");
-        outtakeR = hardwareMap.get(DcMotor.class, "outtakeR");
+        intake  = hardwareMap.get(DcMotorEx.class, "intake");
+        outtakeL = hardwareMap.get(DcMotorEx.class, "outtakeL");
+        outtakeR = hardwareMap.get(DcMotorEx.class, "outtakeR");
 
         fr.setDirection(DcMotor.Direction.REVERSE);
         br.setDirection(DcMotor.Direction.REVERSE);
+        outtakeR.setDirection(DcMotor.Direction.REVERSE);
 
-        fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        resetDriveEncoders();
 
         waitForStart();
         if (!opModeIsActive()) return;
 
-        drive(0, 1, 1000, DRIVE_SPEED);
-        drive(1, 0, 600, DRIVE_SPEED);
-        rotate(90, TURN_SPEED);
-        drive(0, -1, 900, DRIVE_SPEED);
+        driveDistance(24, DRIVE_SPEED);
+        strafeDistance(12, DRIVE_SPEED);
+        rotateDegrees(90, TURN_SPEED);
+        driveDistance(-20, DRIVE_SPEED);
 
-        runIntake(INTAKE_SPEED, 2000);  // run intake for 2 seconds
-        runOuttake(OUTTAKE_SPEED, 1500); // run outtake for 1.5 seconds
+        runIntake(INTAKE_POWER, 2000);
+        runOuttakeVelocity(OUTTAKE_TPS, 1500);
     }
 
-    public void drive(double x, double y, int ticks, double speed) {
-        int flTarget = fl.getCurrentPosition() + (int)((y + x) * ticks);
-        int frTarget = fr.getCurrentPosition() + (int)((y - x) * ticks);
-        int blTarget = bl.getCurrentPosition() + (int)((y - x) * ticks);
-        int brTarget = br.getCurrentPosition() + (int)((y + x) * ticks);
+    private void resetDriveEncoders() {
+        fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
 
-        fl.setTargetPosition(flTarget);
-        fr.setTargetPosition(frTarget);
-        bl.setTargetPosition(blTarget);
-        br.setTargetPosition(brTarget);
+    public void driveDistance(double inches, double speed) {
+        int ticks = (int) (inches * TPI);
+        setTarget(fl, ticks);
+        setTarget(fr, ticks);
+        setTarget(bl, ticks);
+        setTarget(br, ticks);
+        runToPosition(speed);
+    }
 
-        fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+    public void strafeDistance(double inches, double speed) {
+        int ticks = (int) (inches * TPI);
+        setTarget(fl,  ticks);
+        setTarget(fr, -ticks);
+        setTarget(bl, -ticks);
+        setTarget(br,  ticks);
+        runToPosition(speed);
+    }
 
+    public void rotateDegrees(double degrees, double speed) {
+        int ticks = (int)(degrees * 10);
+        setTarget(fl,  ticks);
+        setTarget(bl,  ticks);
+        setTarget(fr, -ticks);
+        setTarget(br, -ticks);
+        runToPosition(speed);
+    }
+
+    private void setTarget(DcMotorEx m, int delta) {
+        m.setTargetPosition(m.getCurrentPosition() + delta);
+        m.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+    }
+
+    private void runToPosition(double speed) {
         fl.setPower(speed);
         fr.setPower(speed);
         bl.setPower(speed);
         br.setPower(speed);
-
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) { idle(); }
-
-        stopAll();
+        while (opModeIsActive() &&
+                (fl.isBusy() || fr.isBusy() || bl.isBusy() || br.isBusy())) {
+            idle();
+        }
+        stopDrive();
+        resetDriveEncoders();
     }
 
-    public void rotate(double degrees, double speed) {
-        int ticksPerDegree = 10;
-        int ticks = (int)(degrees * ticksPerDegree);
-
-        fl.setTargetPosition(fl.getCurrentPosition() + ticks);
-        bl.setTargetPosition(bl.getCurrentPosition() + ticks);
-        fr.setTargetPosition(fr.getCurrentPosition() - ticks);
-        br.setTargetPosition(br.getCurrentPosition() - ticks);
-
-        fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-
-        fl.setPower(speed);
-        fr.setPower(speed);
-        bl.setPower(speed);
-        br.setPower(speed);
-
-        while (opModeIsActive() && fl.isBusy() && fr.isBusy() && bl.isBusy() && br.isBusy()) { idle(); }
-
-        stopAll();
-    }
-
-    public void runIntake(double power, long durationMs) {
-        intakeMotor.setPower(power);
-        sleep(durationMs);
-        intakeMotor.setPower(0);
-    }
-
-    public void runOuttake(double power, long durationMs) {
-        outtakeL.setPower(power);
-        outtakeR.setPower(-power);
-        sleep(durationMs);
-        outtakeL.setPower(0);
-        outtakeR.setPower(0);
-    }
-
-    public void stopAll() {
+    public void stopDrive() {
         fl.setPower(0);
         fr.setPower(0);
         bl.setPower(0);
         br.setPower(0);
+    }
+
+    public void runIntake(double power, long ms) {
+        intake.setPower(power);
+        sleep(ms);
+        intake.setPower(0);
+    }
+
+    public void runOuttakeVelocity(double tps, long ms) {
+        outtakeL.setVelocity(tps);
+        outtakeR.setVelocity(tps);
+        sleep(ms);
+        outtakeL.setVelocity(0);
+        outtakeR.setVelocity(0);
     }
 }
