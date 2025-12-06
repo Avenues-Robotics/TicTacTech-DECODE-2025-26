@@ -1,10 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 @SuppressWarnings("unused")
 @Config
@@ -13,18 +14,21 @@ public class DriveTeleOp1Controller extends LinearOpMode {
 
     public static double FAST_MODE_SPEED   = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
-    public static double INTAKE_SPEED  = 0.4;
-    public static double OUTTAKE_SPEED = 590;
+    public static double INTAKE_SPEED  = 1.0;
+    public static double OUTTAKE_SPEED = 630;
 
     public static double INTAKE_BURST_POWER = 1.0;
-    public static int INTAKE_BURST_MS = 300;
+    public static int INTAKE_BURST_MS = 100;
 
     private DcMotorEx fl, fr, bl, br, intake, outtakeL, outtakeR;
 
     private boolean fastMode = false;
-    private boolean triggerHeld = false;
+    private boolean fastTogglePressed = false;
 
-    private long burstEndTime = 0;
+    private boolean outtakeOn = false;
+    private boolean outtakeTogglePressed = false;
+
+    private ElapsedTime burstTimer = new ElapsedTime();
     private int burstDir = 0;
 
     private double expo(double value) {
@@ -52,6 +56,11 @@ public class DriveTeleOp1Controller extends LinearOpMode {
         bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
+        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         outtakeL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         outtakeR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -60,42 +69,35 @@ public class DriveTeleOp1Controller extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            if (gamepad1.x && !triggerHeld) {
+            if (gamepad1.y && !fastTogglePressed) {
                 fastMode = !fastMode;
-                triggerHeld = true;
+                fastTogglePressed = true;
             }
-            if (!gamepad1.x) triggerHeld = false;
+            if (!gamepad1.y) fastTogglePressed = false;
 
             try {
-                if (fastMode) {
-                    gamepad1.setLedColor(0, 0, 255, 0); // blue for fast
-                } else {
-                    gamepad1.setLedColor(255, 0, 0, 0); // red for normal
-                }
-            } catch (Exception e) {
-                // dont want it breaking the entire script if it fails or we dont use a ps4/5 controller. (this is an experimental feature)
-            }
-
+                if (fastMode)
+                    gamepad1.setLedColor(0, 0, 255, 1000);
+                else
+                    gamepad1.setLedColor(255, 0, 0, 1000);
+            } catch (Exception ignored) {}
 
             double y = expo(gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
 
-            //I do this because I first put intake in the front but driver says he wants outtake in the front
             y = -y;
             x = -x;
-            r = -r;
 
             double flPow = y + x + r;
             double frPow = y - x - r;
             double blPow = y - x + r;
             double brPow = y + x - r;
 
-            double max = Math.max(1.0, Math.max(
-                    Math.abs(flPow),
-                    Math.max(Math.abs(frPow),
-                            Math.max(Math.abs(blPow), Math.abs(brPow)))
-            ));
+            double max = Math.max(1.0,
+                    Math.max(Math.abs(flPow),
+                            Math.max(Math.abs(frPow),
+                                    Math.max(Math.abs(blPow), Math.abs(brPow)))));
 
             double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
 
@@ -104,40 +106,44 @@ public class DriveTeleOp1Controller extends LinearOpMode {
             bl.setPower((blPow / max) * scale);
             br.setPower((brPow / max) * scale);
 
-            if (gamepad1.right_trigger > 0.1) {
+            if (gamepad1.a) {
                 burstDir = 1;
-                burstEndTime = System.currentTimeMillis() + INTAKE_BURST_MS;
-            } else if (gamepad1.left_trigger > 0.1) {
+                burstTimer.reset();
+            } else if (gamepad1.b) {
                 burstDir = -1;
-                burstEndTime = System.currentTimeMillis() + INTAKE_BURST_MS;
+                burstTimer.reset();
             }
 
-            if (System.currentTimeMillis() < burstEndTime) {
+            if (burstTimer.milliseconds() < INTAKE_BURST_MS) {
                 intake.setPower(burstDir * INTAKE_BURST_POWER);
-            } else if (gamepad1.a) {
+            } else if (gamepad1.right_trigger > 0.1) {
                 intake.setPower(INTAKE_SPEED);
-            } else if (gamepad1.b) {
+            } else if (gamepad1.left_trigger > 0.1) {
                 intake.setPower(-INTAKE_SPEED);
             } else {
                 intake.setPower(0);
             }
 
-            if (gamepad1.right_bumper) {
+            // ----------- OUTTAKE TOGGLE on RB
+            if (gamepad1.right_bumper && !outtakeTogglePressed) {
+                outtakeOn = !outtakeOn;
+                outtakeTogglePressed = true;
+            }
+            if (!gamepad1.right_bumper) {
+                outtakeTogglePressed = false;
+            }
+
+            if (outtakeOn) {
                 outtakeL.setVelocity(OUTTAKE_SPEED);
                 outtakeR.setVelocity(OUTTAKE_SPEED);
-            }
-            else if (gamepad1.left_bumper) {
-                outtakeL.setPower(-1);
-                outtakeR.setPower(-1);
-            }
-            else {
+            } else {
                 outtakeL.setVelocity(0);
                 outtakeR.setVelocity(0);
             }
 
-            telemetry.addData("Fast Mode: ", fastMode);
-            telemetry.addData("Outtake TPS: ", outtakeL.getVelocity());
-            telemetry.addData("Burst Active???: ", System.currentTimeMillis() < burstEndTime);
+            telemetry.addData("Fast Mode", fastMode);
+            telemetry.addData("Outtake TPS", outtakeL.getVelocity());
+            telemetry.addData("Burst Active", burstTimer.milliseconds() < INTAKE_BURST_MS);
             telemetry.update();
         }
     }
