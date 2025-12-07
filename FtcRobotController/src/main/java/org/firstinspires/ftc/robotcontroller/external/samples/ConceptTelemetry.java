@@ -99,7 +99,7 @@ public class ConceptTelemetry extends LinearOpMode  {
          * we waited, we would just call waitForStart().
          */
         while (!isStarted()) {
-            telemetry.addData("time", "%.1f seconds", opmodeRunTime.seconds());
+            telemetry.addData("time", "%.0f seconds", opmodeRunTime.seconds());
             telemetry.update();
             idle();
         }

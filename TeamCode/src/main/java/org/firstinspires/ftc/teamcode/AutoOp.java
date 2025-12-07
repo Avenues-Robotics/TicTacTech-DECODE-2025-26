@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+@Config
 @SuppressWarnings("unused")
 @Autonomous(name = "AutoOp", group = "Main")
 public class AutoOp extends LinearOpMode {
@@ -15,8 +17,10 @@ public class AutoOp extends LinearOpMode {
     public static double DRIVE_SPEED = 0.6;
     public static double TURN_SPEED = 0.6;
 
-    public static double INTAKE_POWER = 0.4;
-    public static double OUTTAKE_TPS  = 590;
+    public static double INTAKE_POWER = 1;
+    public static double OUTTAKE_TPS  = 620;
+    public static double SECONDSHOTTPS = 510;
+    public static int timeOffset = 3000;
 
     private static final double TICKS_PER_REV = 537.6;
     private static final double WHEEL_DIAMETER_IN = 4.0;
@@ -36,20 +40,26 @@ public class AutoOp extends LinearOpMode {
 
         fr.setDirection(DcMotor.Direction.REVERSE);
         br.setDirection(DcMotor.Direction.REVERSE);
+
+        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         outtakeR.setDirection(DcMotor.Direction.REVERSE);
 
         resetDriveEncoders();
 
         waitForStart();
         if (!opModeIsActive()) return;
-
-        driveDistance(24, DRIVE_SPEED);
-        strafeDistance(12, DRIVE_SPEED);
-        rotateDegrees(90, TURN_SPEED);
-        driveDistance(-20, DRIVE_SPEED);
-
-        runIntake(INTAKE_POWER, 2000);
-        runOuttakeVelocity(OUTTAKE_TPS, 1500);
+        outtakeL.setVelocity(-OUTTAKE_TPS);
+        outtakeR.setVelocity(-OUTTAKE_TPS);
+        driveDistance(-45, DRIVE_SPEED);
+        sleep(3000);
+        runIntake(INTAKE_POWER, 200);
+        outtakeL.setVelocity(-SECONDSHOTTPS);
+        outtakeR.setVelocity(-SECONDSHOTTPS);
+        sleep(timeOffset);
+        runIntake(INTAKE_POWER, 1000);
     }
 
     private void resetDriveEncoders() {
@@ -124,8 +134,5 @@ public class AutoOp extends LinearOpMode {
     public void runOuttakeVelocity(double tps, long ms) {
         outtakeL.setVelocity(tps);
         outtakeR.setVelocity(tps);
-        sleep(ms);
-        outtakeL.setVelocity(0);
-        outtakeR.setVelocity(0);
     }
 }

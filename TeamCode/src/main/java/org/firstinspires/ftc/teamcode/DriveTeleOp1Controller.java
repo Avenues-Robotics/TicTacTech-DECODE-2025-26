@@ -15,7 +15,7 @@ public class DriveTeleOp1Controller extends LinearOpMode {
     public static double FAST_MODE_SPEED   = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
     public static double INTAKE_SPEED  = 1.0;
-    public static double OUTTAKE_SPEED = 630;
+    public static double OUTTAKE_SPEED = 610;
 
     public static double INTAKE_BURST_POWER = 1.0;
     public static int INTAKE_BURST_MS = 100;
@@ -27,6 +27,8 @@ public class DriveTeleOp1Controller extends LinearOpMode {
 
     private boolean outtakeOn = false;
     private boolean outtakeTogglePressed = false;
+
+    private double readyPercentage = 0.0;
 
     private ElapsedTime burstTimer = new ElapsedTime();
     private int burstDir = 0;
@@ -82,6 +84,13 @@ public class DriveTeleOp1Controller extends LinearOpMode {
                     gamepad1.setLedColor(255, 0, 0, 1000);
             } catch (Exception ignored) {}
 
+            if(gamepad2.dpad_up){
+                OUTTAKE_SPEED += 0.1;
+            }
+            if(gamepad2.dpad_down){
+                OUTTAKE_SPEED -= 0.1;
+            }
+
             double y = expo(gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
@@ -134,16 +143,19 @@ public class DriveTeleOp1Controller extends LinearOpMode {
             }
 
             if (outtakeOn) {
-                outtakeL.setVelocity(OUTTAKE_SPEED);
-                outtakeR.setVelocity(OUTTAKE_SPEED);
+                outtakeL.setVelocity(-OUTTAKE_SPEED);
+                outtakeR.setVelocity(-OUTTAKE_SPEED);
             } else {
                 outtakeL.setVelocity(0);
                 outtakeR.setVelocity(0);
             }
 
+            readyPercentage = (outtakeL.getVelocity()/OUTTAKE_SPEED) * 100;
+
             telemetry.addData("Fast Mode", fastMode);
             telemetry.addData("Outtake TPS", outtakeL.getVelocity());
             telemetry.addData("Burst Active", burstTimer.milliseconds() < INTAKE_BURST_MS);
+            telemetry.addData("Ready ", "%.0f", readyPercentage);
             telemetry.update();
         }
     }
