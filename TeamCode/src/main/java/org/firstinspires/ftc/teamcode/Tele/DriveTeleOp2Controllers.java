@@ -7,11 +7,11 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Config
-@TeleOp(name = "DriveTeleOp2Controllers", group = "Main")
-public class DriveTeleOp2Controllers extends LinearOpMode {
+import org.firstinspires.ftc.teamcode.helpers.DualOuttakeEx;
 
-    /* ================= DASHBOARD VARIABLES ================= */
+@Config
+@TeleOp(name = "DriveTeleOp2Controllers", group  = "Main")
+public class DriveTeleOp2Controllers extends LinearOpMode {
 
     public static double FAST_MODE_SPEED   = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
@@ -20,23 +20,16 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     public static double INTAKE_BURST_POWER = 1.0;
     public static int    INTAKE_BURST_MS = 100;
 
-    // Outtake base + boost
     public static double OUTTAKE_SPEED = 610;
     public static double BOOST_OUTTAKE_SPEED = 900;
 
-    // Velocity drop detection
-    public static double VELOCITY_DROP_THRESHOLD = 0.85; // % of target
+    public static double VELOCITY_DROP_THRESHOLD = 0.85;
     public static double VELOCITY_RECOVER_THRESHOLD = 0.95;
 
-    // Safety
     public static int MAX_BOOST_TIME_MS = 150;
-
-    /* ================= HARDWARE ================= */
 
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx intake, outtakeL, outtakeR;
-
-    /* ================= STATE ================= */
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
@@ -50,13 +43,11 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     private boolean boosting = false;
     private ElapsedTime boostTimer = new ElapsedTime();
 
-    /* ================= HELPERS ================= */
+    private DualOuttakeEx outtake = new DualOuttakeEx();
 
     private double expo(double v) {
         return v * v * v;
     }
-
-    /* ================= OPMODE ================= */
 
     @Override
     public void runOpMode() {
@@ -88,11 +79,11 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         outtakeL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         outtakeR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        outtake.init(hardwareMap, telemetry);
+
         waitForStart();
 
         while (opModeIsActive()) {
-
-            /* ================= FAST MODE TOGGLE ================= */
 
             if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
                 fastMode = !fastMode;
@@ -101,8 +92,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             if (gamepad1.right_trigger < 0.1) {
                 triggerHeld = false;
             }
-
-            /* ================= DRIVE ================= */
 
             double y = expo(-gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
@@ -125,8 +114,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             bl.setPower((blPow / max) * scale);
             br.setPower((brPow / max) * scale);
 
-            /* ================= INTAKE ================= */
-
             if (gamepad2.a) {
                 burstDir = 1;
                 intakeBurstTimer.reset();
@@ -145,8 +132,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 intake.setPower(0);
             }
 
-            /* ================= OUTTAKE TOGGLE ================= */
-
             if (gamepad2.right_bumper && !outtakeTogglePressed) {
                 outtakeOn = !outtakeOn;
                 outtakeTogglePressed = true;
@@ -154,8 +139,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             if (!gamepad2.right_bumper) {
                 outtakeTogglePressed = false;
             }
-
-            /* ================= RAPID FIRE LOGIC ================= */
 
             double currentVelocity = Math.abs(outtakeL.getVelocity());
 
@@ -167,8 +150,8 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             }
 
             if (boosting) {
-                outtakeL.setVelocity(-BOOST_OUTTAKE_SPEED);
-                outtakeR.setVelocity(-BOOST_OUTTAKE_SPEED);
+                outtake.setTVelocity(-BOOST_OUTTAKE_SPEED);
+                outtake.update();
 
                 if (currentVelocity > OUTTAKE_SPEED * VELOCITY_RECOVER_THRESHOLD ||
                         boostTimer.milliseconds() > MAX_BOOST_TIME_MS) {
@@ -176,14 +159,12 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 }
 
             } else if (outtakeOn) {
-                outtakeL.setVelocity(-OUTTAKE_SPEED);
-                outtakeR.setVelocity(-OUTTAKE_SPEED);
+                outtake.setTVelocity(-OUTTAKE_SPEED);
+                outtake.update();
             } else {
-                outtakeL.setVelocity(0);
-                outtakeR.setVelocity(0);
+                outtake.setTVelocity(0);
+                outtake.update();
             }
-
-            /* ================= TELEMETRY ================= */
 
             telemetry.addData("Fast Mode", fastMode);
             telemetry.addData("Outtake On", outtakeOn);
