@@ -5,43 +5,30 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.helpers.DualOuttakeEx;
 
 @Config
-@TeleOp(name = "DriveTeleOp2Controllers", group  = "Main")
+@TeleOp(name = "DriveTeleOp2Controllers", group = "Main")
 public class DriveTeleOp2Controllers extends LinearOpMode {
 
     public static double FAST_MODE_SPEED   = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
 
     public static double INTAKE_SPEED = 1.0;
-    public static double INTAKE_BURST_POWER = 1.0;
-    public static int    INTAKE_BURST_MS = 100;
 
     public static double OUTTAKE_SPEED = 610;
-    public static double BOOST_OUTTAKE_SPEED = 900;
 
-    public static double VELOCITY_DROP_THRESHOLD = 0.85;
-    public static double VELOCITY_RECOVER_THRESHOLD = 0.95;
-
-    public static int MAX_BOOST_TIME_MS = 150;
+    public static double DRAWBACK_POWER = 0.15;
 
     private DcMotorEx fl, fr, bl, br;
-    private DcMotorEx intake, outtakeL, outtakeR;
+    private DcMotorEx intake, transfer;
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
 
     private boolean outtakeOn = false;
     private boolean outtakeTogglePressed = false;
-
-    private int burstDir = 0;
-    private ElapsedTime intakeBurstTimer = new ElapsedTime();
-
-    private boolean boosting = false;
-    private ElapsedTime boostTimer = new ElapsedTime();
 
     private DualOuttakeEx outtake = new DualOuttakeEx();
 
@@ -58,12 +45,10 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         br = hardwareMap.get(DcMotorEx.class, "bR");
 
         intake   = hardwareMap.get(DcMotorEx.class, "intake");
-        outtakeL = hardwareMap.get(DcMotorEx.class, "outtakeL");
-        outtakeR = hardwareMap.get(DcMotorEx.class, "outtakeR");
+        transfer = hardwareMap.get(DcMotorEx.class, "transfer");
 
         fr.setDirection(DcMotor.Direction.REVERSE);
         br.setDirection(DcMotor.Direction.REVERSE);
-        outtakeR.setDirection(DcMotor.Direction.REVERSE);
 
         fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -76,8 +61,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        outtakeL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        outtakeR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         outtake.init(hardwareMap, telemetry);
 
@@ -114,17 +98,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             bl.setPower((blPow / max) * scale);
             br.setPower((brPow / max) * scale);
 
-            if (gamepad2.a) {
-                burstDir = 1;
-                intakeBurstTimer.reset();
-            } else if (gamepad2.b) {
-                burstDir = -1;
-                intakeBurstTimer.reset();
-            }
-
-            if (intakeBurstTimer.milliseconds() < INTAKE_BURST_MS) {
-                intake.setPower(burstDir * INTAKE_BURST_POWER);
-            } else if (gamepad2.right_trigger > 0.1) {
+            if (gamepad2.right_trigger > 0.1) {
                 intake.setPower(INTAKE_SPEED);
             } else if (gamepad2.left_trigger > 0.1) {
                 intake.setPower(-INTAKE_SPEED);
@@ -140,37 +114,21 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 outtakeTogglePressed = false;
             }
 
-            double currentVelocity = Math.abs(outtakeL.getVelocity());
+            boolean transferOn = gamepad2.left_bumper;
+            transfer.setPower(transferOn ? 1.0 : -Math.abs(DRAWBACK_POWER));
 
-            if (outtakeOn && !boosting &&
-                    currentVelocity < OUTTAKE_SPEED * VELOCITY_DROP_THRESHOLD) {
-
-                boosting = true;
-                boostTimer.reset();
-            }
-
-            if (boosting) {
-                outtake.setTVelocity(-BOOST_OUTTAKE_SPEED);
-                outtake.update();
-
-                if (currentVelocity > OUTTAKE_SPEED * VELOCITY_RECOVER_THRESHOLD ||
-                        boostTimer.milliseconds() > MAX_BOOST_TIME_MS) {
-                    boosting = false;
-                }
-
-            } else if (outtakeOn) {
+            if (outtakeOn) {
                 outtake.setTVelocity(-OUTTAKE_SPEED);
-                outtake.update();
             } else {
                 outtake.setTVelocity(0);
-                outtake.update();
             }
+            outtake.update();
 
             telemetry.addData("Fast Mode", fastMode);
             telemetry.addData("Outtake On", outtakeOn);
-            telemetry.addData("Boosting", boosting);
-            telemetry.addData("Velocity", "%.0f", currentVelocity);
-            telemetry.addData("Target Vel", OUTTAKE_SPEED);
+            telemetry.addData("Outtake Target", OUTTAKE_SPEED);
+            telemetry.addData("Transfer (LB)", transferOn);
+            telemetry.addData("Drawback Power", DRAWBACK_POWER);
             telemetry.update();
         }
     }
