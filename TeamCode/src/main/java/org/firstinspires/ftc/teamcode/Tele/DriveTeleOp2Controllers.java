@@ -19,7 +19,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
     public static double OUTTAKE_SPEED = 610;
 
-    public static double DRAWBACK_POWER = 0.15;
+    public static double DRAWBACK_POWER = 0.05;
 
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx intake, transfer;
