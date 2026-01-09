@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.tele;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -24,19 +26,22 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx intake, transfer;
+    private Limelight3A limelight;
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
 
     private boolean outtakeOn = false;
     private boolean outtakeTogglePressed = false;
-
+    private boolean isBlueAlliance = true; // default alliance
     private DualOuttakeEx outtake = new DualOuttakeEx();
 
     private double expo(double v) {
         return v * v * v;
     }
-
+    private double clamp(double v, double min, double max) {
+        return Math.max(min, Math.min(max, v));
+    }
     @Override
     public void runOpMode() {
 
@@ -68,6 +73,10 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
         outtake.init(hardwareMap, telemetry);
 
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.setPollRateHz(100);
+        limelight.start();
+
         waitForStart();
 
         while (opModeIsActive()) {
@@ -78,6 +87,29 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             }
             if (gamepad1.right_trigger < 0.1) {
                 triggerHeld = false;
+            }
+
+            if (gamepad2.dpad_right) {
+                isBlueAlliance = false;
+                limelight.pipelineSwitch(0); // red alliance pipeline
+            }
+            if (gamepad2.dpad_left) {
+                isBlueAlliance = true;
+                limelight.pipelineSwitch(1); // blue alliance pipeline
+            }
+
+            LLResult result = limelight.getLatestResult();
+            boolean hasTarget = false;
+            double tx = 0.0, ta = 0.0;
+
+            if (result != null && result.isValid()) {
+                double targetTx = result.getTx();
+                // Only accept targets on the correct alliance pipeline
+                if ((isBlueAlliance && targetTx > 0) || (!isBlueAlliance && targetTx < 0)) {
+                    hasTarget = true;
+                    tx = targetTx;
+                    ta = result.getTa();
+                }
             }
 
             double y = expo(gamepad1.left_stick_y);
