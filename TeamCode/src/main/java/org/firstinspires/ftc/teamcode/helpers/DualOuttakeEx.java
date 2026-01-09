@@ -30,7 +30,7 @@ public class DualOuttakeEx {
         outtakeL = hardwareMap.get(DcMotorEx.class, "outtakeL");
         outtakeR = hardwareMap.get(DcMotorEx.class, "outtakeR");
 
-        outtakeL.setDirection(DcMotorSimple.Direction.REVERSE);
+        outtakeR.setDirection(DcMotorSimple.Direction.REVERSE);
 
         outtakeL.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         outtakeR.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
