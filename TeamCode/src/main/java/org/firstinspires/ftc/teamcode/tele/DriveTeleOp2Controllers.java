@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.helpers.DualOuttakeEx;
 
@@ -15,14 +16,19 @@ import org.firstinspires.ftc.teamcode.helpers.DualOuttakeEx;
 @TeleOp(name = "DriveTeleOp2Controllers", group = "Main")
 public class DriveTeleOp2Controllers extends LinearOpMode {
 
-    public static double FAST_MODE_SPEED   = 1.0;
+    public static double FAST_MODE_SPEED = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
 
     public static double INTAKE_SPEED = 1.0;
-
     public static double OUTTAKE_SPEED = 610;
-
     public static double DRAWBACK_POWER = 0.05;
+
+    public static double SNAP_kP = 0.020;
+    public static double SNAP_kD = 0.003;
+    public static double SNAP_DEADBAND = 0.7;
+    public static double SNAP_MAX = 0.7;
+    public static double SNAP_MIN = 0.06;
+    public static double SNAP_TIMEOUT = 0.20;
 
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx intake, transfer;
@@ -33,15 +39,27 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
     private boolean outtakeOn = false;
     private boolean outtakeTogglePressed = false;
-    private boolean isBlueAlliance = true; // default alliance
+    private boolean isBlueAlliance = true;
+
     private DualOuttakeEx outtake = new DualOuttakeEx();
+
+    private double lastTx = 0.0;
+    private double lastErr = 0.0;
+    private double lastTime = 0.0;
+    private ElapsedTime snapTimer = new ElapsedTime();
 
     private double expo(double v) {
         return v * v * v;
     }
+
     private double clamp(double v, double min, double max) {
         return Math.max(min, Math.min(max, v));
     }
+
+    private double sign(double v) {
+        return v >= 0 ? 1.0 : -1.0;
+    }
+
     @Override
     public void runOpMode() {
 
@@ -50,7 +68,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         bl = hardwareMap.get(DcMotorEx.class, "bL");
         br = hardwareMap.get(DcMotorEx.class, "bR");
 
-        intake   = hardwareMap.get(DcMotorEx.class, "intake");
+        intake = hardwareMap.get(DcMotorEx.class, "intake");
         transfer = hardwareMap.get(DcMotorEx.class, "transfer");
 
         fr.setDirection(DcMotor.Direction.REVERSE);
@@ -68,7 +86,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
         intake.setDirection(DcMotorSimple.Direction.REVERSE);
 
         outtake.init(hardwareMap, telemetry);
@@ -76,6 +93,9 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
         limelight.start();
+
+        snapTimer.reset();
+        lastTime = 0.0;
 
         waitForStart();
 
@@ -91,30 +111,56 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
             if (gamepad2.dpad_right) {
                 isBlueAlliance = false;
-                limelight.pipelineSwitch(0); // red alliance pipeline
+                limelight.pipelineSwitch(0);
             }
             if (gamepad2.dpad_left) {
                 isBlueAlliance = true;
-                limelight.pipelineSwitch(1); // blue alliance pipeline
+                limelight.pipelineSwitch(1);
             }
 
             LLResult result = limelight.getLatestResult();
             boolean hasTarget = false;
-            double tx = 0.0, ta = 0.0;
+            double tx = 0.0;
 
             if (result != null && result.isValid()) {
-                double targetTx = result.getTx();
-                // Only accept targets on the correct alliance pipeline
-                if ((isBlueAlliance && targetTx > 0) || (!isBlueAlliance && targetTx < 0)) {
+                double t = result.getTx();
+                if ((isBlueAlliance && t > 0) || (!isBlueAlliance && t < 0)) {
                     hasTarget = true;
-                    tx = targetTx;
-                    ta = result.getTa();
+                    tx = t;
+                    lastTx = t;
+                    snapTimer.reset();
                 }
+            }
+
+            if (!hasTarget && snapTimer.seconds() < SNAP_TIMEOUT) {
+                hasTarget = true;
+                tx = lastTx;
             }
 
             double y = expo(gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
+
+            if (gamepad1.left_bumper && hasTarget) {
+                double now = getRuntime();
+                double dt = Math.max(1e-3, now - lastTime);
+                double err = tx;
+                double derr = (err - lastErr) / dt;
+
+                r = SNAP_kP * err + SNAP_kD * derr;
+
+                if (Math.abs(err) < SNAP_DEADBAND) r = 0.0;
+                if (Math.abs(r) > 0.0) {
+                    r = sign(r) * Math.max(SNAP_MIN, Math.abs(r));
+                }
+                r = clamp(r, -SNAP_MAX, SNAP_MAX);
+
+                lastErr = err;
+                lastTime = now;
+            } else {
+                lastErr = 0.0;
+                lastTime = getRuntime();
+            }
 
             double flPow = y + x + r;
             double frPow = y - x - r;
@@ -158,13 +204,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 outtake.setTVelocity(0);
             }
             outtake.update();
-
-            telemetry.addData("Fast Mode", fastMode);
-            telemetry.addData("Outtake On", outtakeOn);
-            telemetry.addData("Outtake Target", OUTTAKE_SPEED);
-            telemetry.addData("Transfer (LB)", transferOn);
-            telemetry.addData("Drawback Power", DRAWBACK_POWER);
-            telemetry.update();
         }
     }
 }
