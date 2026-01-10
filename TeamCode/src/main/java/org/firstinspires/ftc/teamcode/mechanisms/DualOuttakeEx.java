@@ -58,11 +58,11 @@ public class DualOuttakeEx {
         double vR = outtakeR.getVelocity();
 
         //telemetry based off of Coach Pratt's video
-        telemetry.addLine("shooter");
-        telemetry.addData("TARGET_VELOCITY", "%.1f", TARGET_VELOCITY);
-        telemetry.addData("vL / vR", "%.1f / %.1f", vL, vR);
-        telemetry.addData("errL / errR", "%.1f / %.1f", (TARGET_VELOCITY - vL), (TARGET_VELOCITY - vR));
-        telemetry.addData("P I D F", "%.3f %.3f %.3f %.3f", P, I, D, F);
-        telemetry.update();
+        //telemetry.addLine("shooter");
+//        telemetry.addData("TARGET_VELOCITY", "%.1f", TARGET_VELOCITY);
+//        telemetry.addData("vL / vR", "%.1f / %.1f", vL, vR);
+//        telemetry.addData("errL / errR", "%.1f / %.1f", (TARGET_VELOCITY - vL), (TARGET_VELOCITY - vR));
+//        telemetry.addData("P I D F", "%.3f %.3f %.3f %.3f", P, I, D, F);
+//        telemetry.update();
     }
 }

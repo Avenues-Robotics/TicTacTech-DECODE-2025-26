@@ -49,6 +49,16 @@ public class ArcadeDrive {
         br.setPower((brPow / max) * scale);
     }
 
+    public void setDrivePowers(double flPow, double frPow, double blPow, double brPow) {
+        double max = Math.max(1.0, Math.max(Math.abs(flPow),
+                Math.max(Math.abs(frPow), Math.max(Math.abs(blPow), Math.abs(brPow)))));
+
+        fl.setPower(flPow / max);
+        fr.setPower(frPow / max);
+        bl.setPower(blPow / max);
+        br.setPower(brPow / max);
+    }
+
     public void setIntakePower(double power) {
         intake.setPower(power);
     }

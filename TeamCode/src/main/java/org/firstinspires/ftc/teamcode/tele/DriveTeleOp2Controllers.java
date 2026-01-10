@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
+import org.opencv.core.Mat;
 
 @Config
 @TeleOp(name = "DriveTeleOp2Controllers", group = "Main")
@@ -21,12 +22,10 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.05;
 
-    public static double SNAP_kP = 0.020;
-    public static double SNAP_kD = 0.003;
-    public static double SNAP_DEADBAND = 0.7;
-    public static double SNAP_MAX = 0.7;
-    public static double SNAP_MIN = 0.06;
-    public static double SNAP_TIMEOUT = 0.20;
+    public static double P = 0.04;
+    public static double F = 0;
+    public static double DISTANCE = 0;
+    public static double offset = 0.0;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -38,10 +37,9 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     private boolean outtakeTogglePressed = false;
     private boolean isBlueAlliance = true;
 
-    private double lastTx = 0.0;
-    private double lastErr = 0.0;
-    private double lastTime = 0.0;
-    private ElapsedTime snapTimer = new ElapsedTime();
+    private double tx = 0.0;
+    private double ty = 0.0;
+    private boolean hasTarget = false;
 
     private double expo(double v) { return v * v * v; }
     private double clamp(double v, double min, double max) { return Math.max(min, Math.min(max, v)); }
@@ -55,9 +53,6 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
         limelight.start();
-
-        snapTimer.reset();
-        lastTime = 0.0;
 
         waitForStart();
 
@@ -73,48 +68,32 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
             LLResult result = limelight.getLatestResult();
-            boolean hasTarget = false;
-            double tx = 0.0;
 
             if (result != null && result.isValid()) {
-                double t = result.getTx();
-                if ((isBlueAlliance && t > 0) || (!isBlueAlliance && t < 0)) {
-                    hasTarget = true;
-                    tx = t;
-                    lastTx = t;
-                    snapTimer.reset();
-                }
-            }
-
-            if (!hasTarget && snapTimer.seconds() < SNAP_TIMEOUT) {
+                tx = -result.getTy();
+                ty = -result.getTx();
                 hasTarget = true;
-                tx = lastTx;
+            }
+            else{
+                hasTarget = false;
             }
 
-            double y = expo(gamepad1.left_stick_y);
+            DISTANCE = 19.125/(Math.tan(Math.toRadians(31.3+ty)));
+
+            double y = expo(-gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
 
-            if (gamepad1.left_bumper && hasTarget) {
-                double now = getRuntime();
-                double dt = Math.max(1e-3, now - lastTime);
-                double err = tx;
-                double derr = (err - lastErr) / dt;
-
-                r = SNAP_kP * err + SNAP_kD * derr;
-                if (Math.abs(err) < SNAP_DEADBAND) r = 0.0;
-                if (Math.abs(r) > 0.0) r = sign(r) * Math.max(SNAP_MIN, Math.abs(r));
-                r = clamp(r, -SNAP_MAX, SNAP_MAX);
-
-                lastErr = err;
-                lastTime = now;
-            } else {
-                lastErr = 0.0;
-                lastTime = getRuntime();
+            if (gamepad1.left_trigger >= 0.1){ //&& hasTarget) {
+                double error = tx + offset;
+                double power = (P * error) + (Math.copySign(F, error));
+                robot.setDrivePowers(-power, power, -power, power);
+            }
+            else {
+                double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
+                robot.drive(y, x, r, scale);
             }
 
-            double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
-            robot.drive(y, x, r, scale);
 
             if (gamepad2.right_trigger > 0.1) {
                 robot.setIntakePower(INTAKE_SPEED);
@@ -138,6 +117,12 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 outtake.setTVelocity(0);
             }
             outtake.update();
+            telemetry.addData("Target", hasTarget);
+            telemetry.addData("Is Blue Alliance?", isBlueAlliance);
+            telemetry.addData("tx", tx);
+            telemetry.addData("ty", ty);
+            telemetry.addData("distance", DISTANCE);
+            telemetry.update();
         }
     }
 }
