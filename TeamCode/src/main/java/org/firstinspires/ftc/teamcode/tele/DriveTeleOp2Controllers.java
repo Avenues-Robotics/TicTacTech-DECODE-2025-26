@@ -21,11 +21,12 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     public static double INTAKE_SPEED = 1.0;
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.05;
+    public static double LIMELIGHT_OFFSET = 4.2126;
 
     public static double P = 0.04;
     public static double F = 0;
     public static double DISTANCE = 0;
-    public static double offset = 0.0;
+    public static double offset = -3;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -40,6 +41,8 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
     private double tx = 0.0;
     private double ty = 0.0;
     private boolean hasTarget = false;
+    private double res_plus;
+    private double res_negative;
 
     private double expo(double v) { return v * v * v; }
     private double clamp(double v, double min, double max) { return Math.max(min, Math.min(max, v)); }
@@ -70,23 +73,29 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             LLResult result = limelight.getLatestResult();
 
             if (result != null && result.isValid()) {
-                tx = -result.getTy();
-                ty = -result.getTx();
+                tx = -result.getTx();
+                ty = -result.getTy();
                 hasTarget = true;
+
+                DISTANCE = 19.125/(Math.tan(Math.toRadians(31.3+ty)));
+                double a = DISTANCE;
+                double b = 2 * LIMELIGHT_OFFSET;
+                double c = DISTANCE + ((LIMELIGHT_OFFSET*LIMELIGHT_OFFSET)/DISTANCE) - (DISTANCE/((Math.cos(Math.toRadians(tx)))*Math.cos(Math.toRadians(tx))));
+                res_plus = Math.atan((-b + Math.sqrt((b*b)-4*a*c)) / 2*a);
+                res_negative = Math.atan((-b - Math.sqrt((b*b)-4*a*c)) / 2*a);
+
+
             }
             else{
                 hasTarget = false;
             }
 
-            DISTANCE = 19.125/(Math.tan(Math.toRadians(31.3+ty)));
-
             double y = expo(-gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
             double r = expo(-gamepad1.right_stick_x);
 
-            if (gamepad1.left_trigger >= 0.1){ //&& hasTarget) {
-                double error = tx + offset;
-                double power = (P * error) + (Math.copySign(F, error));
+            if (gamepad1.left_trigger >= 0.1 && hasTarget) {
+                double power = (P * res_plus) + (Math.copySign(F, res_plus));
                 robot.setDrivePowers(-power, power, -power, power);
             }
             else {
