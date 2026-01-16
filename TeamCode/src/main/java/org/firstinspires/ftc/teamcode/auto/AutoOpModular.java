@@ -110,6 +110,8 @@ public class AutoOpModular extends LinearOpMode {
                 case WAIT:
                     sleep((long) step.value);
                     break;
+                case NONE:
+                    break;
             }
 
             outtake.update();
