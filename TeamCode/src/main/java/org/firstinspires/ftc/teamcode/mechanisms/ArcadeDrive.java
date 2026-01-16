@@ -26,16 +26,16 @@ public class ArcadeDrive {
         bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        if(auto){
-            fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
+        if (auto) {
             fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+            fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         }
         else{
             fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -49,23 +49,17 @@ public class ArcadeDrive {
     }
 
     public void setTarget(int motor, int delta) {
-        if (motor == 0){
-            fl.setTargetPosition(fl.getCurrentPosition() + delta);
-            fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
-        if (motor == 1){
-            fr.setTargetPosition(fl.getCurrentPosition() + delta);
-            fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
-        if (motor == 2){
-            bl.setTargetPosition(fl.getCurrentPosition() + delta);
-            bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
-        if (motor == 3) {
-            br.setTargetPosition(fl.getCurrentPosition() + delta);
-            br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
+        DcMotorEx m = null;
+        if (motor == 0) m = fl;
+        if (motor == 1) m = fr;
+        if (motor == 2) m = bl;
+        if (motor == 3) m = br;
+        if (m == null) return;
+
+        m.setTargetPosition(m.getCurrentPosition() + delta);
+        m.setMode(DcMotor.RunMode.RUN_TO_POSITION);
     }
+
 
     public void drive(double y, double x, double r, double scale) {
         double flPow = y + x + r;

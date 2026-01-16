@@ -16,47 +16,10 @@ import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 @Autonomous(name = "AutoOpModular", group = "Main")
 public class AutoOpModular extends LinearOpMode {
 
-    // --- DASHBOARD STEP CONFIGURATION ---
-    public enum MoveType { DRIVE, ROTATE, STRAFE, AIM, FEED, WAIT }
-
-    public static class AutoStep {
-        public MoveType type;
-        public double value; // Distance in inches, Angle in degrees, or Time in ms
-        public double speed;
-
-        public AutoStep() {} // Required for Dashboard
-        public AutoStep(MoveType type, double value, double speed) {
-            this.type = type;
-            this.value = value;
-            this.speed = speed;
-        }
-    }
-
-    // This array appears in FTC Dashboard as an editable, expandable list
-    public static AutoStep[] path = {
-            new AutoStep(MoveType.DRIVE, -45, 0.6),
-            new AutoStep(MoveType.AIM, 0, 0),
-            new AutoStep(MoveType.FEED, 300, 1),
-            new AutoStep(MoveType.ROTATE, 90, 0.5),
-            new AutoStep(MoveType.DRIVE, 10, 0.6),
-            new AutoStep(MoveType.ROTATE, 315, 0.5),
-            new AutoStep(MoveType.DRIVE, -10, 0.6),
-            new AutoStep(MoveType.DRIVE, 10, 0.6),
-            new AutoStep(MoveType.ROTATE, -45, 0.5),
-            new AutoStep(MoveType.DRIVE, 10, 0.6),
-            new AutoStep(MoveType.ROTATE, -90, 0.5),
-            new AutoStep(MoveType.AIM, 0, 0),
-            new AutoStep(MoveType.FEED, 300, 0)
-    };
-
-    // --- HARDWARE & CONSTANTS ---
-    private ArcadeDrive robot = new ArcadeDrive();
-    private DualOuttakeEx outtake = new DualOuttakeEx();
+    private final ArcadeDrive robot = new ArcadeDrive();
+    private final DualOuttakeEx outtake = new DualOuttakeEx();
     private Limelight3A limelight;
-    private DcMotorEx fl, fr, bl, br;
 
-    public static double DRIVE_SPEED = 0.6;
-    public static double ROTATION_SPEED = 0.5;
     public static double OUTTAKE_SPEED = 620;
     public static double INTAKE_POWER = 1.0;
     public static double TRANSFER_FEED_POWER = 1.0;
@@ -64,7 +27,6 @@ public class AutoOpModular extends LinearOpMode {
 
     public static double AIM_P = 0.04;
     public static double AIM_F = 0.0;
-    public static double AIM_OFFSET = 0.0;
     public static long AIM_TIMEOUT_MS = 1200;
 
     public static double offset = -3;
@@ -79,26 +41,33 @@ public class AutoOpModular extends LinearOpMode {
     private double res_plus;
     private double DISTANCE;
 
+    public static AutoStep step00 = new AutoStep(MoveType.DRIVE, -45, 0.6);
+    public static AutoStep step01 = new AutoStep(MoveType.AIM, 0, 0);
+    public static AutoStep step02 = new AutoStep(MoveType.FEED, 300, 1);
+    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, 90, 0.5);
+    public static AutoStep step04 = new AutoStep(MoveType.DRIVE, 10, 0.6);
+    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, 315, 0.5);
+    public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -10, 0.6);
+    public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 10, 0.6);
+    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, -45, 0.5);
+    public static AutoStep step09 = new AutoStep(MoveType.DRIVE, 10, 0.6);
+    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, -90, 0.5);
+    public static AutoStep step11 = new AutoStep(MoveType.AIM, 0, 0);
+    public static AutoStep step12 = new AutoStep(MoveType.FEED, 300, 0);
+
+    private AutoStep[] getPath() {
+        return new AutoStep[] {
+                step00, step01, step02, step03, step04, step05, step06,
+                step07, step08, step09, step10, step11, step12
+        };
+    }
+
     @Override
     public void runOpMode() {
-        // Initialization
         robot.init(hardwareMap, true);
         outtake.init(hardwareMap, telemetry);
 
-        fl = hardwareMap.get(DcMotorEx.class, "fL");
-        fr = hardwareMap.get(DcMotorEx.class, "fR");
-        bl = hardwareMap.get(DcMotorEx.class, "bL");
-        br = hardwareMap.get(DcMotorEx.class, "bR");
-
-        fr.setDirection(DcMotor.Direction.REVERSE);
-        br.setDirection(DcMotor.Direction.REVERSE);
-
-        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        resetDriveEncoders();
+        robot.resetDriveEncoders();
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
@@ -109,17 +78,17 @@ public class AutoOpModular extends LinearOpMode {
         waitForStart();
         if (!opModeIsActive()) return;
 
-        // Startup sequence
         holdTransfer();
         startIntake();
         setShooterSpeed(OUTTAKE_SPEED);
         outtake.update();
 
-        // Loop through the Dashboard path
-        for (AutoStep step : path) {
+        for (AutoStep step : getPath()) {
             if (!opModeIsActive()) break;
 
             telemetry.addData("Executing", step.type);
+            telemetry.addData("Value", step.value);
+            telemetry.addData("Speed", step.speed);
             telemetry.update();
 
             switch (step.type) {
@@ -142,10 +111,10 @@ public class AutoOpModular extends LinearOpMode {
                     sleep((long) step.value);
                     break;
             }
+
             outtake.update();
         }
 
-        // Shutdown sequence
         stopDrivePower();
         setShooterSpeed(0);
         outtake.update();
@@ -153,7 +122,10 @@ public class AutoOpModular extends LinearOpMode {
         stopIntake();
     }
 
-    // --- MECHANISM METHODS ---
+    private DcMotorEx fl() { return robot.getFl(); }
+    private DcMotorEx fr() { return robot.getFr(); }
+    private DcMotorEx bl() { return robot.getBl(); }
+    private DcMotorEx br() { return robot.getBr(); }
 
     private void setAlliance(boolean blue) {
         isBlueAlliance = blue;
@@ -212,44 +184,30 @@ public class AutoOpModular extends LinearOpMode {
         holdTransfer();
     }
 
-    // --- DRIVE METHODS ---
-
-    private void resetDriveEncoders() {
-        fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-    }
-
     public void driveDistance(double inches, double speed) {
         int ticks = (int) (inches * TPI);
-        setTarget(fl, ticks);
-        setTarget(fr, ticks);
-        setTarget(bl, ticks);
-        setTarget(br, ticks);
+        setTarget(fl(), ticks);
+        setTarget(fr(), ticks);
+        setTarget(bl(), ticks);
+        setTarget(br(), ticks);
         runToPosition(speed);
     }
 
     public void strafeDistance(double inches, double speed) {
         int ticks = (int) (inches * TPI);
-        setTarget(fl, ticks);
-        setTarget(fr, -ticks);
-        setTarget(bl, -ticks);
-        setTarget(br, ticks);
+        setTarget(fl(), ticks);
+        setTarget(fr(), -ticks);
+        setTarget(bl(), -ticks);
+        setTarget(br(), ticks);
         runToPosition(speed);
     }
 
     public void rotateDegrees(double degrees, double speed) {
-        int ticks = (int) (degrees * 6); // Adjust this multiplier as needed for your bot
-        setTarget(fl, ticks);
-        setTarget(bl, ticks);
-        setTarget(fr, -ticks);
-        setTarget(br, -ticks);
+        int ticks = (int) (degrees * 6);
+        setTarget(fl(), ticks);
+        setTarget(bl(), ticks);
+        setTarget(fr(), -ticks);
+        setTarget(br(), -ticks);
         runToPosition(speed);
     }
 
@@ -259,25 +217,21 @@ public class AutoOpModular extends LinearOpMode {
     }
 
     private void runToPosition(double speed) {
-        fl.setPower(speed);
-        fr.setPower(speed);
-        bl.setPower(speed);
-        br.setPower(speed);
+        robot.setMotorPower(0, speed);
+        robot.setMotorPower(1, speed);
+        robot.setMotorPower(2, speed);
+        robot.setMotorPower(3, speed);
 
-        while (opModeIsActive() && (fl.isBusy() || fr.isBusy() || bl.isBusy() || br.isBusy())) {
-            outtake.update(); // Keep PID loops running while moving
+        while (opModeIsActive() && (fl().isBusy() || fr().isBusy() || bl().isBusy() || br().isBusy())) {
+            outtake.update();
             idle();
         }
 
         stopDrivePower();
-        resetDriveEncoders();
+        robot.resetDriveEncoders();
     }
 
     private void stopDrivePower() {
         robot.setDrivePowers(0, 0, 0, 0);
-        fl.setPower(0);
-        fr.setPower(0);
-        bl.setPower(0);
-        br.setPower(0);
     }
 }
