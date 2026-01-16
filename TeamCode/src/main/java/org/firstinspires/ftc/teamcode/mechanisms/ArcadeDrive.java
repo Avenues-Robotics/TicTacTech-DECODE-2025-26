@@ -9,7 +9,7 @@ public class ArcadeDrive {
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx intake, transfer;
 
-    public void init(HardwareMap hwMap) {
+    public void init(HardwareMap hwMap, boolean auto) {
         fl = hwMap.get(DcMotorEx.class, "fL");
         fr = hwMap.get(DcMotorEx.class, "fR");
         bl = hwMap.get(DcMotorEx.class, "bL");
@@ -26,12 +26,45 @@ public class ArcadeDrive {
         bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        fr.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        if(auto){
+            fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        }
+        else{
+            fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            fr.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    }
+
+    public void setTarget(int motor, int delta) {
+        if (motor == 0){
+            fl.setTargetPosition(fl.getCurrentPosition() + delta);
+            fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        if (motor == 1){
+            fr.setTargetPosition(fl.getCurrentPosition() + delta);
+            fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        if (motor == 2){
+            bl.setTargetPosition(fl.getCurrentPosition() + delta);
+            bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        if (motor == 3) {
+            br.setTargetPosition(fl.getCurrentPosition() + delta);
+            br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
     }
 
     public void drive(double y, double x, double r, double scale) {
@@ -59,6 +92,21 @@ public class ArcadeDrive {
         br.setPower(brPow / max);
     }
 
+    public void setMotorPower(int motor, double speed) {
+        if (motor == 0){
+            fl.setPower(speed);
+        }
+        if (motor == 1){
+            fr.setPower(speed);
+        }
+        if (motor == 2){
+            bl.setPower(speed);
+        }
+        if (motor == 3){
+            br.setPower(speed);
+        }
+    }
+
     public void setIntakePower(double power) {
         intake.setPower(power);
     }
@@ -67,6 +115,22 @@ public class ArcadeDrive {
         transfer.setPower(power);
     }
 
+    public void resetDriveEncoders() {
+        fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+
     public DcMotorEx getIntake() { return intake; }
     public DcMotorEx getTransfer() { return transfer; }
+    public DcMotorEx getFl() { return fl; }
+    public DcMotorEx getFr() { return fr; }
+    public DcMotorEx getBr() { return br; }
+    public DcMotorEx getBl() { return bl; }
 }

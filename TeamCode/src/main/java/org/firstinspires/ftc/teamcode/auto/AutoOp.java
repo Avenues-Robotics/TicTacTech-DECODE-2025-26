@@ -41,6 +41,9 @@ public class AutoOp extends LinearOpMode {
 
     public static long FEED_MS = 300;
 
+    public static double DISTANCE;
+    public static double offset = -3;
+
     private static final double TICKS_PER_REV = 537.6;
     private static final double WHEEL_DIAMETER_IN = 4.0;
     private static final double TPI = TICKS_PER_REV / (Math.PI * WHEEL_DIAMETER_IN);
@@ -48,33 +51,23 @@ public class AutoOp extends LinearOpMode {
     private boolean isBlueAlliance = true;
     private boolean hasTarget = false;
     private double tx = 0.0;
+    private double ty = 0.0;
+    private double res_plus;
+
 
     @Override
     public void runOpMode() {
 
-        robot.init(hardwareMap);
+        robot.init(hardwareMap, true);
         outtake.init(hardwareMap, telemetry);
 
-        fl = hardwareMap.get(DcMotorEx.class, "fL");
-        fr = hardwareMap.get(DcMotorEx.class, "fR");
-        bl = hardwareMap.get(DcMotorEx.class, "bL");
-        br = hardwareMap.get(DcMotorEx.class, "bR");
-
-        fr.setDirection(DcMotor.Direction.REVERSE);
-        br.setDirection(DcMotor.Direction.REVERSE);
-
-        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        resetDriveEncoders();
+        robot.resetDriveEncoders();
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
         limelight.start();
 
-        setAlliance(true);
+        setAlliance(false);
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -85,37 +78,33 @@ public class AutoOp extends LinearOpMode {
         setShooterSpeed(OUTTAKE_SPEED);
         outtake.update();
 
-        driveDistance(-45, DRIVE_SPEED);
-
-        aimAtGoal(AIM_TIMEOUT_MS);
-
-        feedTransfer(FEED_MS);
-
-        rotateDegrees(90, ROTATION_SPEED);
-
-        driveDistance(10, DRIVE_SPEED);
-
-        rotateDegrees(315, ROTATION_SPEED);
-
         driveDistance(-10, DRIVE_SPEED);
 
-        driveDistance(10, DRIVE_SPEED);
+//        aimAtGoal(AIM_TIMEOUT_MS);
+//
+//        feedTransfer(FEED_MS);
+//
+//        rotateDegrees(90, ROTATION_SPEED);
+//
+//        driveDistance(10, DRIVE_SPEED);
+//
+//        rotateDegrees(315, ROTATION_SPEED);
+//
+//        driveDistance(-10, DRIVE_SPEED);
+//
+//        driveDistance(10, DRIVE_SPEED);
+//
+//        rotateDegrees(-45, ROTATION_SPEED);
+//
+//        driveDistance(10, DRIVE_SPEED);
+//
+//        rotateDegrees(-90, ROTATION_SPEED);
+//
+//        aimAtGoal(AIM_TIMEOUT_MS);
+//
+//        feedTransfer(FEED_MS);
 
-        rotateDegrees(-45, ROTATION_SPEED);
 
-        driveDistance(10, DRIVE_SPEED);
-
-        rotateDegrees(-90, ROTATION_SPEED);
-
-        aimAtGoal(AIM_TIMEOUT_MS);
-
-        feedTransfer(FEED_MS);
-
-        stopDrivePower();
-        setShooterSpeed(0);
-        outtake.update();
-        holdTransfer();
-        stopIntake();
     }
 
     private void setAlliance(boolean blue) {
@@ -126,8 +115,12 @@ public class AutoOp extends LinearOpMode {
     private void updateLimelight() {
         LLResult result = limelight.getLatestResult();
         if (result != null && result.isValid()) {
-            tx = -result.getTy();
+            tx = -result.getTx();
+            ty = -result.getTy();
             hasTarget = true;
+            DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
+            res_plus = Math.toDegrees(Math.atan(offset/DISTANCE + Math.tan(Math.toRadians(tx))));
+
         } else {
             hasTarget = false;
         }
@@ -144,14 +137,7 @@ public class AutoOp extends LinearOpMode {
                 stopDrivePower();
                 break;
             }
-
-            double error = tx + AIM_OFFSET;
-            double power = (AIM_P * error) + Math.copySign(AIM_F, error);
-
-            if (Math.abs(error) < 0.6) {
-                stopDrivePower();
-                break;
-            }
+            double power = (AIM_P * res_plus) + (Math.copySign(AIM_F, res_plus));
 
             robot.setDrivePowers(-power, power, -power, power);
             outtake.update();
@@ -183,69 +169,53 @@ public class AutoOp extends LinearOpMode {
         holdTransfer();
     }
 
-    private void resetDriveEncoders() {
-        fl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        fr.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        bl.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        br.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-    }
 
     public void driveDistance(double inches, double speed) {
         int ticks = (int) (inches * TPI);
-        setTarget(fl, ticks);
-        setTarget(fr, ticks);
-        setTarget(bl, ticks);
-        setTarget(br, ticks);
+        robot.setTarget(0, ticks);
+        robot.setTarget(1, ticks);
+        robot.setTarget(2, ticks);
+        robot.setTarget(3, ticks);
         runToPosition(speed);
     }
 
     public void strafeDistance(double inches, double speed) {
         int ticks = (int) (inches * TPI);
-        setTarget(fl, ticks);
-        setTarget(fr, -ticks);
-        setTarget(bl, -ticks);
-        setTarget(br, ticks);
+        robot.setTarget(0, ticks);
+        robot.setTarget(1, -ticks);
+        robot.setTarget(2, -ticks);
+        robot.setTarget(3, ticks);
         runToPosition(speed);
     }
 
     public void rotateDegrees(double degrees, double speed) {
         int ticks = (int) (degrees * 6);
-        setTarget(fl, ticks);
-        setTarget(bl, ticks);
-        setTarget(fr, -ticks);
-        setTarget(br, -ticks);
+        robot.setTarget(0, ticks);
+        robot.setTarget(2, ticks);
+        robot.setTarget(1, -ticks);
+        robot.setTarget(3, -ticks);
         runToPosition(speed);
     }
 
-    private void setTarget(DcMotorEx m, int delta) {
-        m.setTargetPosition(m.getCurrentPosition() + delta);
-        m.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-    }
 
     private void runToPosition(double speed) {
-        fl.setPower(speed);
-        fr.setPower(speed);
-        bl.setPower(speed);
-        br.setPower(speed);
+        robot.setMotorPower(0, speed);
+        robot.setMotorPower(1, speed);
+        robot.setMotorPower(2, speed);
+        robot.setMotorPower(3, speed);
 
-        while (opModeIsActive() && (fl.isBusy() || fr.isBusy() || bl.isBusy() || br.isBusy())) {
+        while (opModeIsActive() && (robot.getFl().isBusy() || robot.getFr().isBusy() || robot.getBl().isBusy() || robot.getBr().isBusy())) {
             idle();
         }
 
         stopDrivePower();
-        resetDriveEncoders();
+        robot.resetDriveEncoders();
     }
 
     private void stopDrivePower() {
-        robot.setDrivePowers(0, 0, 0, 0);
-        fl.setPower(0);
-        fr.setPower(0);
-        bl.setPower(0);
-        br.setPower(0);
+        robot.setMotorPower(0, 0);
+        robot.setMotorPower(1, 0);
+        robot.setMotorPower(2, 0);
+        robot.setMotorPower(3, 0);
     }
 }

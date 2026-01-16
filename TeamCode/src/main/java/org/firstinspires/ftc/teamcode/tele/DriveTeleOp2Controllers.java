@@ -50,7 +50,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        robot.init(hardwareMap);
+        robot.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
@@ -77,12 +77,14 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 ty = -result.getTy();
                 hasTarget = true;
 
-                DISTANCE = 19.125/(Math.tan(Math.toRadians(31.3+ty)));
-                double a = DISTANCE;
-                double b = 2 * LIMELIGHT_OFFSET;
-                double c = DISTANCE + ((LIMELIGHT_OFFSET*LIMELIGHT_OFFSET)/DISTANCE) - (DISTANCE/((Math.cos(Math.toRadians(tx)))*Math.cos(Math.toRadians(tx))));
-                res_plus = Math.atan((-b + Math.sqrt((b*b)-4*a*c)) / 2*a);
-                res_negative = Math.atan((-b - Math.sqrt((b*b)-4*a*c)) / 2*a);
+                DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
+                res_plus = Math.toDegrees(Math.atan(offset/DISTANCE + Math.tan(Math.toRadians(tx))));
+                if (DISTANCE > 110) {
+                    OUTTAKE_SPEED = 610;
+                }
+                else{
+                    OUTTAKE_SPEED = 525;
+                }
 
 
             }
@@ -131,6 +133,9 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             telemetry.addData("tx", tx);
             telemetry.addData("ty", ty);
             telemetry.addData("distance", DISTANCE);
+            telemetry.addData("res plus" , res_plus);
+            telemetry.addData("res negative" , res_negative);
+            telemetry.addData("reg target", OUTTAKE_SPEED);
             telemetry.update();
         }
     }
