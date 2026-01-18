@@ -13,23 +13,23 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
-@Autonomous(name = "AutoOpModular", group = "Main")
+@Autonomous(name = "AutoOpModularBlueClose", group = "Main")
 public class AutoOpModularBlueClose extends LinearOpMode {
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
     private Limelight3A limelight;
 
-    public static double OUTTAKE_SPEED = 620;
+    public static double OUTTAKE_SPEED = 525;
     public static double INTAKE_POWER = 1.0;
-    public static double TRANSFER_FEED_POWER = 1.0;
+    public static double TRANSFER_FEED_POWER = -1.0;
     public static double TRANSFER_HOLD_POWER = 0.05;
 
     public static double AIM_P = 0.04;
     public static double AIM_F = 0.0;
     public static long AIM_TIMEOUT_MS = 1200;
 
-    public static double offset = -3;
+    public static double offset = -4.5;
     private static final double TICKS_PER_REV = 537.6;
     private static final double WHEEL_DIAMETER_IN = 4.0;
     private static final double TPI = TICKS_PER_REV / (Math.PI * WHEEL_DIAMETER_IN);
@@ -41,19 +41,19 @@ public class AutoOpModularBlueClose extends LinearOpMode {
     private double res_plus;
     private double DISTANCE;
 
-    public static AutoStep step00 = new AutoStep(MoveType.DRIVE, -45, 0.6);
+    public static AutoStep step00 = new AutoStep(MoveType.DRIVE, -40, 0.75);
     public static AutoStep step01 = new AutoStep(MoveType.AIM, 0, 0);
-    public static AutoStep step02 = new AutoStep(MoveType.FEED, 300, 1);
-    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, 90, 0.5);
-    public static AutoStep step04 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, 315, 0.5);
-    public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -10, 0.6);
-    public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, -45, 0.5);
-    public static AutoStep step09 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, -90, 0.5);
+    public static AutoStep step02 = new AutoStep(MoveType.FEED, 4000, 1);
+    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, -90, 0.5);
+    public static AutoStep step04 = new AutoStep(MoveType.DRIVE, -10, 0.75);
+    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, -130, 0.5);
+    public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -35, 0.8);
+    public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 35, 0.8);
+    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, 130, 0.5);
+    public static AutoStep step09 = new AutoStep(MoveType.DRIVE, 15, 0.75);
+    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, 100, 0.5);
     public static AutoStep step11 = new AutoStep(MoveType.AIM, 0, 0);
-    public static AutoStep step12 = new AutoStep(MoveType.FEED, 300, 0);
+    public static AutoStep step12 = new AutoStep(MoveType.FEED, 5000, 0);
 
     private AutoStep[] getPath() {
         return new AutoStep[] {
@@ -182,7 +182,11 @@ public class AutoOpModularBlueClose extends LinearOpMode {
 
     private void feedTransfer(long ms) {
         robot.setTransferPower(TRANSFER_FEED_POWER);
-        sleep(ms);
+        sleep(ms/2);
+        robot.setTransferPower(1);
+        sleep(ms/4);
+        robot.setTransferPower(TRANSFER_FEED_POWER);
+        sleep(ms/4);
         holdTransfer();
     }
 

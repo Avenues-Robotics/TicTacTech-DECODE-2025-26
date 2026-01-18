@@ -20,7 +20,7 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
 
     public static double INTAKE_SPEED = 1.0;
     public static double OUTTAKE_SPEED = 610;
-    public static double DRAWBACK_POWER = 0.05;
+    public static double DRAWBACK_POWER = 0.3;
     public static double LIMELIGHT_OFFSET = 4.2126;
 
     public static double P = 0.04;
@@ -78,12 +78,12 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
                 hasTarget = true;
 
                 DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
-                res_plus = Math.toDegrees(Math.atan(offset/DISTANCE + Math.tan(Math.toRadians(tx))));
-                if (DISTANCE > 110) {
-                    OUTTAKE_SPEED = 610;
+                res_plus = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET/DISTANCE + Math.tan(Math.toRadians(tx))));
+                if (DISTANCE > 68) {
+                    OUTTAKE_SPEED = 620;
                 }
                 else{
-                    OUTTAKE_SPEED = 525;
+                    OUTTAKE_SPEED = 540;
                 }
 
 
@@ -120,12 +120,19 @@ public class DriveTeleOp2Controllers extends LinearOpMode {
             }
             if (!gamepad2.right_bumper) outtakeTogglePressed = false;
 
-            robot.setTransferPower(gamepad2.left_bumper ? -1.0 : DRAWBACK_POWER);
+            if (gamepad2.left_bumper){
+                robot.setTransferPower(-1.0);
+            } else if (gamepad2.x) {
+                robot.setTransferPower(1.0);
+            }
+            else{
+                robot.setTransferPower(DRAWBACK_POWER);
+            }
 
             if (outtakeOn) {
                 outtake.setTVelocity(-OUTTAKE_SPEED);
             } else {
-                outtake.setTVelocity(0);
+                outtake.setTVelocity(-OUTTAKE_SPEED);
             }
             outtake.update();
             telemetry.addData("Target", hasTarget);

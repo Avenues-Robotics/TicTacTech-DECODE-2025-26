@@ -13,23 +13,23 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
-@Autonomous(name = "AutoOpModular", group = "Main")
+@Autonomous(name = "AutoOpModularRedFar", group = "Main")
 public class AutoOpModularRedFar extends LinearOpMode {
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
     private Limelight3A limelight;
 
-    public static double OUTTAKE_SPEED = 620;
+    public static double OUTTAKE_SPEED = 610;
     public static double INTAKE_POWER = 1.0;
-    public static double TRANSFER_FEED_POWER = 1.0;
-    public static double TRANSFER_HOLD_POWER = 0.05;
+    public static double TRANSFER_FEED_POWER = -1.0;
+    public static double TRANSFER_HOLD_POWER = 0.3;
 
     public static double AIM_P = 0.04;
-    public static double AIM_F = 0.0;
-    public static long AIM_TIMEOUT_MS = 1200;
+    public static double AIM_F = 0;
+    public static long AIM_TIMEOUT_MS = 3200;
 
-    public static double offset = -3;
+    public static double offset = 4.5;
     private static final double TICKS_PER_REV = 537.6;
     private static final double WHEEL_DIAMETER_IN = 4.0;
     private static final double TPI = TICKS_PER_REV / (Math.PI * WHEEL_DIAMETER_IN);
@@ -40,24 +40,26 @@ public class AutoOpModularRedFar extends LinearOpMode {
     private double ty = 0.0;
     private double res_plus;
     private double DISTANCE;
+    public static double adjustment = 1;
 
-    public static AutoStep step00 = new AutoStep(MoveType.DRIVE, -45, 0.6);
+    public static AutoStep step00 = new AutoStep(MoveType.DRIVE, 6, 0.6);
+    public static AutoStep step001 = new AutoStep(MoveType.ROTATE, -15, 0.6);
     public static AutoStep step01 = new AutoStep(MoveType.AIM, 0, 0);
-    public static AutoStep step02 = new AutoStep(MoveType.FEED, 300, 1);
-    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, 90, 0.5);
-    public static AutoStep step04 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, 315, 0.5);
-    public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -10, 0.6);
-    public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, -45, 0.5);
-    public static AutoStep step09 = new AutoStep(MoveType.DRIVE, 10, 0.6);
-    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, -90, 0.5);
-    public static AutoStep step11 = new AutoStep(MoveType.AIM, 0, 0);
-    public static AutoStep step12 = new AutoStep(MoveType.FEED, 300, 0);
+    public static AutoStep step02 = new AutoStep(MoveType.WAIT, 2000, 1);
+    public static AutoStep step03 = new AutoStep(MoveType.FEED, 6000, 0.5);
+    public static AutoStep step04 = new AutoStep(MoveType.DRIVE, 20, 0.6);
+    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, 190, 0.5);
+    public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -30, 0.8);
+    public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 30, 0.8);
+    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, -150, 0.5);
+    public static AutoStep step09 = new AutoStep(MoveType.DRIVE, -18, 0.7);
+    public static AutoStep step10 = new AutoStep(MoveType.AIM, 0, 0);
+    public static AutoStep step11 = new AutoStep(MoveType.WAIT, 1000, 0);
+    public static AutoStep step12 = new AutoStep(MoveType.FEED, 5000, 0);
 
     private AutoStep[] getPath() {
         return new AutoStep[] {
-                step00, step01, step02, step03, step04, step05, step06,
+                step00, step001,  step01, step02, step03, step04, step05, step06,
                 step07, step08, step09, step10, step11, step12
         };
     }
@@ -73,7 +75,7 @@ public class AutoOpModularRedFar extends LinearOpMode {
         limelight.setPollRateHz(100);
         limelight.start();
 
-        setAlliance(true);
+        setAlliance(false);
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -141,7 +143,7 @@ public class AutoOpModularRedFar extends LinearOpMode {
             ty = -result.getTy();
             hasTarget = true;
             DISTANCE = 13.7795 / (Math.tan(Math.toRadians(ty)));
-            res_plus = Math.toDegrees(Math.atan(offset / DISTANCE + Math.tan(Math.toRadians(tx))));
+            res_plus = Math.toDegrees(Math.atan(offset / DISTANCE + Math.tan(Math.toRadians(tx + adjustment))));
         } else {
             hasTarget = false;
         }
@@ -182,7 +184,11 @@ public class AutoOpModularRedFar extends LinearOpMode {
 
     private void feedTransfer(long ms) {
         robot.setTransferPower(TRANSFER_FEED_POWER);
-        sleep(ms);
+        sleep(ms/2);
+        robot.setTransferPower(1);
+        sleep(ms/4);
+        robot.setTransferPower(TRANSFER_FEED_POWER);
+        sleep(ms/4);
         holdTransfer();
     }
 
