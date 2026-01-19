@@ -1,19 +1,17 @@
 package org.firstinspires.ftc.teamcode.tele;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
-import org.opencv.core.Mat;
+import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
-@TeleOp(name = "DriveTeleOp2Controllers", group = "Main")
-public class DriveTeleOp2Controllers extends LinearOpMode {
+@TeleOp(name = "DriveTeleOp2ControllersOdom", group = "Main")
+public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
 
     public static double FAST_MODE_SPEED = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
