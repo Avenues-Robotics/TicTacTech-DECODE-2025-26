@@ -95,12 +95,11 @@ public class DriveTeleOp2ControllersOdometeryRed extends LinearOpMode {
                 robot.drive(y, x, r, scale);
             }
 
-            if (gamepad2.right_trigger > 0.1) {
-                robot.setIntakePower(INTAKE_SPEED);
-            } else if (gamepad2.left_trigger > 0.1) {
+
+            if (gamepad2.left_trigger > 0.1) {
                 robot.setIntakePower(-INTAKE_SPEED);
             } else {
-                robot.setIntakePower(0);
+                robot.setIntakePower(INTAKE_SPEED);
             }
 
             if (gamepad2.right_bumper && !outtakeTogglePressed) {
