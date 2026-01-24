@@ -48,7 +48,7 @@ public class DriveTeleOp2ControllersPinpointOdomRedExper extends LinearOpMode {
             GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
     public static boolean SET_START_POSE_ON_INIT = true;
-    public static double START_X_IN = 72.0;
+    public static double START_X_IN = 8.0;
     public static double START_Y_IN = 8.0;
     public static double START_HEADING_DEG = 90.0;
 
