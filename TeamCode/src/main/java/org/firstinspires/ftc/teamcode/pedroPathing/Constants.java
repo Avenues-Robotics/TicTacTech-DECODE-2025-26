@@ -30,10 +30,8 @@ public class Constants {
             .rightRearMotorName("bR")
             .leftRearMotorName("bL")
             .leftFrontMotorName("fL")
-            .leftFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
+            .rightRearMotorDirection(DcMotorSimple.Direction.REVERSE)
             .xVelocity(0) //use Tuning / PedroPathing --> Automatic --> Forward Velocity Tuner
             .yVelocity(0); //goes to left. Use tuning --> Automatic --> Lateral Velocity Tuner
 
