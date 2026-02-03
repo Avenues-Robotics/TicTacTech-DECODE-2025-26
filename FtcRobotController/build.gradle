@@ -17,8 +17,8 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    compileSdk 34
 
-    compileSdkVersion 30
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -28,7 +28,3 @@ android {
 }
 
 apply from: '../build.dependencies.gradle'
-
-repositories {
-    maven { url = "https://mymaven.bylazar.com/releases" }
-}
