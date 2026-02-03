@@ -27,7 +27,6 @@ repositories {
     maven {
         url = 'https://maven.brott.dev/'
     }
-    maven { url 'https://jitpack.io' }
     maven { url = "https://mymaven.bylazar.com/releases" }
     google()
     mavenCentral()

@@ -21,7 +21,7 @@ apply plugin: 'com.android.application'
 
 android {
 
-    compileSdkVersion 30
+    compileSdkVersion 36
 
     signingConfigs {
         release {
@@ -113,17 +113,4 @@ android {
 }
 
 repositories {
-    // Standard Repositories
-    google()
-    mavenCentral()
-
-    // Custom Repositories for FTC Libraries
-    maven { url = 'https://maven.brott.dev/' }
-
-    // THIS IS THE FIX FOR "Failed to resolve: com.bylazar:fullpanels"
-    maven { url = "https://mymaven.bylazar.com/releases" }
-
-    // JitPack (Keep this here for when you are not on school Wi-Fi)
-    maven { url 'https://jitpack.io' }
 }
-
