@@ -22,12 +22,12 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
     public static double LIMELIGHT_OFFSET = 4.2126;
 
     public static double P = 0.04;
-    public static double F = 0;
+    public static double F = 0.08;
     public static double DISTANCE = 0;
 
     // This value now scales encoder ticks/sec instead of joystick input.
     // Start very small (e.g., 0.0001) and tune.
-    public static double VELOCITY_COMPENSATION = 0;
+    public static double VELOCITY_COMPENSATION = 0.0001;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -138,11 +138,8 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
                 robot.setTransferPower(DRAWBACK_POWER);
             }
 
-            if (outtakeOn) {
-                outtake.setTVelocity(-OUTTAKE_SPEED);
-            } else {
-                outtake.setTVelocity(-OUTTAKE_SPEED);
-            }
+            outtake.setTVelocity(-OUTTAKE_SPEED);
+
             outtake.update();
             telemetry.addData("Target", hasTarget);
             telemetry.addData("Is Blue Alliance?", isBlueAlliance);

@@ -17,14 +17,22 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double NORMAL_MODE_SPEED = 0.4;
 
     public static double INTAKE_SPEED = 1.0;
-    public static double OUTTAKE_SPEED = 610;
+    // These are your hard setpoints
+    public static double SPEED_NEAR = 540;
+    public static double SPEED_FAR = 620;
+    public static double DISTANCE_THRESHOLD = 68.0;
+
     public static double DRAWBACK_POWER = 0.3;
     public static double LIMELIGHT_OFFSET = 4.2126;
 
     public static double P = 0.04;
-    public static double F = 0;
+    public static double F = 0.08;
     public static double DISTANCE = 0;
-    public static double offset = -3;
+
+    // Strafe Tuning
+    public static double VELOCITY_COMPENSATION = 0.0001;
+    // 0.0 = no smoothing (jittery), 0.8 = very smooth (laggy). Start at 0.5
+    public static double SMOOTHING_FACTOR = 0.5;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -40,11 +48,12 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     private double ty = 0.0;
     private boolean hasTarget = false;
     private double res_plus;
-    private double res_negative;
+    private double outtakeSpeed = SPEED_NEAR;
+
+    // Filter variable to store previous velocity
+    private double smoothedStrafeVel = 0.0;
 
     private double expo(double v) { return v * v * v; }
-    private double clamp(double v, double min, double max) { return Math.max(min, Math.min(max, v)); }
-    private double sign(double v) { return v >= 0 ? 1.0 : -1.0; }
 
     @Override
     public void runOpMode() {
@@ -68,6 +77,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
+            double y = expo(-gamepad1.left_stick_y);
+            double x = expo(-gamepad1.left_stick_x);
+
             LLResult result = limelight.getLatestResult();
 
             if (result != null && result.isValid()) {
@@ -76,33 +88,54 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 hasTarget = true;
 
                 DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
-                res_plus = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET/DISTANCE + Math.tan(Math.toRadians(tx))));
-                if (DISTANCE > 68) {
-                    OUTTAKE_SPEED = 620;
-                }
-                else{
-                    OUTTAKE_SPEED = 540;
-                }
 
+                // Base calculation
+                double baseAngle = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET/DISTANCE + Math.tan(Math.toRadians(tx))));
 
+                // --- CLEANED UP STRAFE MATH ---
+
+                // 1. Get Raw Velocities
+                double vFL = robot.getFl().getVelocity();
+                double vFR = robot.getFr().getVelocity();
+                double vBL = robot.getBl().getVelocity();
+                double vBR = robot.getBr().getVelocity();
+
+                // 2. Calculate Raw Strafe (Mecanum Kinematics)
+                // (FL + BR) - (FR + BL) isolates the strafe component
+                double rawStrafeVel = (vFL + vBR) - (vFR + vBL);
+
+                // 3. Low-Pass Filter (Simple exponential smoothing)
+                // This removes the "jitter" from raw encoder readings
+                smoothedStrafeVel = (SMOOTHING_FACTOR * smoothedStrafeVel) + ((1.0 - SMOOTHING_FACTOR) * rawStrafeVel);
+
+                // 4. Apply Compensation
+                res_plus = baseAngle + (smoothedStrafeVel * VELOCITY_COMPENSATION);
+
+                // Original Distance Logic
+                if (DISTANCE > DISTANCE_THRESHOLD) {
+                    outtakeSpeed = SPEED_FAR;
+                } else {
+                    outtakeSpeed = SPEED_NEAR;
+                }
             }
-            else{
+            else {
                 hasTarget = false;
+                // Decay the velocity so it doesn't get stuck if we lose target
+                smoothedStrafeVel *= 0.9;
             }
 
-            double y = expo(-gamepad1.left_stick_y);
-            double x = expo(-gamepad1.left_stick_x);
-            double r = expo(-gamepad1.right_stick_x);
+            double r;
 
             if (gamepad1.left_trigger >= 0.1 && hasTarget) {
                 double power = (P * res_plus) + (Math.copySign(F, res_plus));
-                robot.setDrivePowers(-power, power, -power, power);
+                r = -power;
             }
             else {
-                double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
-                robot.drive(y, x, r, scale);
+                r = expo(-gamepad1.right_stick_x);
             }
 
+            double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
+            robot.drive(y, x, r, scale);
 
             if (gamepad2.left_trigger > 0.1) {
                 robot.setIntakePower(-INTAKE_SPEED);
@@ -125,11 +158,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 robot.setTransferPower(DRAWBACK_POWER);
             }
 
-            if (outtakeOn) {
-                outtake.setTVelocity(-OUTTAKE_SPEED);
-            } else {
-                outtake.setTVelocity(-OUTTAKE_SPEED);
-            }
+            // Original Outtake Logic (Always running based on Distance check)
+            outtake.setTVelocity(-outtakeSpeed);
+
             outtake.update();
             telemetry.addData("Target", hasTarget);
             telemetry.addData("Is Blue Alliance?", isBlueAlliance);
@@ -137,8 +168,8 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             telemetry.addData("ty", ty);
             telemetry.addData("distance", DISTANCE);
             telemetry.addData("res plus" , res_plus);
-            telemetry.addData("res negative" , res_negative);
-            telemetry.addData("reg target", OUTTAKE_SPEED);
+            telemetry.addData("Strafe Vel (Smooth)", smoothedStrafeVel);
+            telemetry.addData("reg target", outtakeSpeed);
             telemetry.update();
         }
     }

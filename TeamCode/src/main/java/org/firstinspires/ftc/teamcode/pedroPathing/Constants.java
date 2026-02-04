@@ -17,12 +17,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
             .mass(10.20583) // in kg
-            .forwardZeroPowerAcceleration(0) // Automatic --> Forward Zero Power Acceleration Tuner
-            .lateralZeroPowerAcceleration(0) // Automatic --> Lateral Zero Power Acceleration Tuner
-            .translationalPIDFCoefficients(new PIDFCoefficients(0,0,0,0)) // Manual --> Translational Tuner
-            .headingPIDFCoefficients(new PIDFCoefficients(0,0,0,0)) // Manual --> Heading Tuner
-            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0,0,0,0,0)) // Manual --> Drive Tuner
-            .centripetalScaling(0.0005) // Manual --> Centripetal Tuner
             ;
     public static MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
@@ -30,16 +24,18 @@ public class Constants {
             .rightRearMotorName("bR")
             .leftRearMotorName("bL")
             .leftFrontMotorName("fL")
+            .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
             .rightRearMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .xVelocity(0) //use Tuning / PedroPathing --> Automatic --> Forward Velocity Tuner
-            .yVelocity(0); //goes to left. Use tuning --> Automatic --> Lateral Velocity Tuner
+            //.xVelocity(27.90319355641763)
+            ;
 
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(-5)//inches distance from center
-            .strafePodX(0.5)
-            .distanceUnit(DistanceUnit.MM)
+            .forwardPodY(5.70866)//inches distance from center
+            .strafePodX(2.75591) // redo center of odo pods
+            .distanceUnit(DistanceUnit.INCH)
             .hardwareMapName("pinpoint")
             .encoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD)
             .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD) //do tuning and check if the x goes up or down
