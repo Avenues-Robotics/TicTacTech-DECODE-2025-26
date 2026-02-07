@@ -38,10 +38,10 @@ public class ArcadeDrive {
             br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         }
         else{
-            fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            fr.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            fl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            fr.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            bl.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            br.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         }
 
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
