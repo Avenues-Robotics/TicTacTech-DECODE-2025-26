@@ -24,10 +24,8 @@ public class Constants {
             .rightRearMotorName("bR")
             .leftRearMotorName("bL")
             .leftFrontMotorName("fL")
-            .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightRearMotorDirection(DcMotorSimple.Direction.REVERSE)
+            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
             //.xVelocity(27.90319355641763)
             ;
 
@@ -38,7 +36,7 @@ public class Constants {
             .distanceUnit(DistanceUnit.INCH)
             .hardwareMapName("pinpoint")
             .encoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD)
-            .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD) //do tuning and check if the x goes up or down
+            .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.REVERSED) //do tuning and check if the x goes up or down
             .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD); //do tuning and check if the y goes up or down
     public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
 

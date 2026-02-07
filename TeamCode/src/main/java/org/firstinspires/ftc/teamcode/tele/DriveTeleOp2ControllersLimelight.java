@@ -26,11 +26,11 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double LIMELIGHT_OFFSET = 4.2126;
 
     public static double P = 0.04;
-    public static double F = 0.08;
+    public static double F = 0.07;
     public static double DISTANCE = 0;
 
     // Strafe Tuning
-    public static double VELOCITY_COMPENSATION = 0.0001;
+    public static double VELOCITY_COMPENSATION = 0.5;
     // 0.0 = no smoothing (jittery), 0.8 = very smooth (laggy). Start at 0.5
     public static double SMOOTHING_FACTOR = 0.5;
 
@@ -77,8 +77,8 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
-            double y = expo(-gamepad1.left_stick_y);
-            double x = expo(-gamepad1.left_stick_x);
+            double y = expo(gamepad1.left_stick_y);
+            double x = expo(gamepad1.left_stick_x);
 
             LLResult result = limelight.getLatestResult();
 
@@ -111,12 +111,8 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 // 4. Apply Compensation
                 res_plus = baseAngle + (smoothedStrafeVel * VELOCITY_COMPENSATION);
 
-                // Original Distance Logic
-                if (DISTANCE > DISTANCE_THRESHOLD) {
-                    outtakeSpeed = SPEED_FAR;
-                } else {
-                    outtakeSpeed = SPEED_NEAR;
-                }
+                if (DISTANCE > 70.0) outtakeSpeed = SPEED_FAR;
+                else if (DISTANCE < 66.0) outtakeSpeed = SPEED_NEAR;
             }
             else {
                 hasTarget = false;
@@ -127,8 +123,11 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             double r;
 
             if (gamepad1.left_trigger >= 0.1 && hasTarget) {
-                double power = (P * res_plus) + (Math.copySign(F, res_plus));
-                r = -power;
+                    double power = 0;
+                    if (Math.abs(res_plus) > 0.1) {
+                        power = (P * res_plus) + (Math.copySign(F, res_plus));
+                    }
+                    r = -power;
             }
             else {
                 r = expo(-gamepad1.right_stick_x);

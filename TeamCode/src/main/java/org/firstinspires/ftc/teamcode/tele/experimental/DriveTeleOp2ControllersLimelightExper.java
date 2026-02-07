@@ -68,8 +68,8 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
             if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
-            double y = expo(-gamepad1.left_stick_y);
-            double x = expo(-gamepad1.left_stick_x);
+            double y = expo(gamepad1.left_stick_y);
+            double x = expo(gamepad1.left_stick_x);
 
             LLResult result = limelight.getLatestResult();
 
