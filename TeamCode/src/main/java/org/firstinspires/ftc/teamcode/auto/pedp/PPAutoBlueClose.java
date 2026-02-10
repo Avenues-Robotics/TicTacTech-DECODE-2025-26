@@ -13,15 +13,16 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name="Pedro Auto (9 Paths)", group="Autonomous")
-public class PPAuto extends OpMode {
+@Autonomous(name="PP Auto Blue Close", group="Autonomous")
+public class PPAutoBlueClose extends OpMode {
 
     private Follower follower;
     private Timer pathTimer, opModeTimer;
 
     private PathChain path1, path2, path3, path4, path5, path6, path7, path8, path9;
 
-    private final Pose startPose = new Pose(72, 8, Math.toRadians(90));
+    // Adjusted start pose heading to match path1's starting interpolation
+    private final Pose startPose = new Pose(20.976, 123.247, Math.toRadians(143));
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
@@ -31,23 +32,16 @@ public class PPAuto extends OpMode {
     public static double TRANSFER_FEED_POWER = -1.0;
     public static double TRANSFER_HOLD_POWER = 0.05;
 
-    public static long FEED_MS = 1200;
-
     public enum PathState {
-        FOLLOW_PATH_1,
-        FEED_AFTER_1,
+        FOLLOW_PATH_1, FEED_1,
         FOLLOW_PATH_2,
-        FOLLOW_PATH_3,
-        FEED_AFTER_3,
+        FOLLOW_PATH_3, FEED_2,
         FOLLOW_PATH_4,
-        FOLLOW_PATH_5,
-        FEED_AFTER_5,
+        FOLLOW_PATH_5, FEED_3,
         FOLLOW_PATH_6,
-        FOLLOW_PATH_7,
-        FEED_AFTER_7,
+        FOLLOW_PATH_7, FEED_4,
         FOLLOW_PATH_8,
-        FOLLOW_PATH_9,
-        FEED_AFTER_9,
+        FOLLOW_PATH_9, FEED_5,
         DONE
     }
 
@@ -69,10 +63,8 @@ public class PPAuto extends OpMode {
         holdTransfer();
         startIntake();
         setShooterSpeed(OUTTAKE_SPEED);
-        outtake.update();
 
         pathState = PathState.FOLLOW_PATH_1;
-        telemetry.addLine("Initialized");
     }
 
     @Override
@@ -87,11 +79,10 @@ public class PPAuto extends OpMode {
         statePathUpdate();
         outtake.update();
 
-        telemetry.addData("path state", pathState);
-        telemetry.addData("x", follower.getPose().getX());
-        telemetry.addData("y", follower.getPose().getY());
-        telemetry.addData("heading", follower.getPose().getHeading());
-        telemetry.addData("Path time (s)", pathTimer.getElapsedTimeSeconds());
+        telemetry.addData("State", pathState);
+        telemetry.addData("X", follower.getPose().getX());
+        telemetry.addData("Y", follower.getPose().getY());
+        telemetry.update();
     }
 
     private void setPathState(PathState newState) {
@@ -99,104 +90,134 @@ public class PPAuto extends OpMode {
         pathTimer.resetTimer();
     }
 
-    private void followThenAdvance(PathChain chain, PathState nextState, boolean reset) {
-        if (pathTimer.getElapsedTimeSeconds() < 0.05) {
-            follower.followPath(chain, reset);
-        }
-        if (!follower.isBusy()) {
-            setPathState(nextState);
-        }
-    }
-
-    private void feedThenAdvance(PathState nextState, long msTotal) {
-        if (pathTimer.getElapsedTimeSeconds() < 0.05) {
-            feedBallsWithTransfer(msTotal);
-        }
-        setPathState(nextState);
-    }
-
     private void statePathUpdate() {
         switch (pathState) {
             case FOLLOW_PATH_1:
-                followThenAdvance(path1, PathState.FEED_AFTER_1, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path1, true);
+                    setPathState(PathState.FEED_1);
+                }
                 break;
 
-            case FEED_AFTER_1:
-                feedThenAdvance(PathState.FOLLOW_PATH_2, FEED_MS);
+            case FEED_1:
+                if (handleFeeding(PathState.FOLLOW_PATH_2)) break;
                 break;
 
             case FOLLOW_PATH_2:
-                followThenAdvance(path2, PathState.FOLLOW_PATH_3, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path2, true);
+                    setPathState(PathState.FOLLOW_PATH_3);
+                }
                 break;
 
             case FOLLOW_PATH_3:
-                followThenAdvance(path3, PathState.FEED_AFTER_3, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path3, true);
+                    setPathState(PathState.FEED_2);
+                }
                 break;
 
-            case FEED_AFTER_3:
-                feedThenAdvance(PathState.FOLLOW_PATH_4, FEED_MS);
+            case FEED_2:
+                if (handleFeeding(PathState.FOLLOW_PATH_4)) break;
                 break;
 
             case FOLLOW_PATH_4:
-                followThenAdvance(path4, PathState.FOLLOW_PATH_5, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path4, true);
+                    setPathState(PathState.FOLLOW_PATH_5);
+                }
                 break;
 
             case FOLLOW_PATH_5:
-                followThenAdvance(path5, PathState.FEED_AFTER_5, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path5, true);
+                    setPathState(PathState.FEED_3);
+                }
                 break;
 
-            case FEED_AFTER_5:
-                feedThenAdvance(PathState.FOLLOW_PATH_6, FEED_MS);
+            case FEED_3:
+                if (handleFeeding(PathState.FOLLOW_PATH_6)) break;
                 break;
 
             case FOLLOW_PATH_6:
-                followThenAdvance(path6, PathState.FOLLOW_PATH_7, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path6, true);
+                    setPathState(PathState.FOLLOW_PATH_7);
+                }
                 break;
 
             case FOLLOW_PATH_7:
-                followThenAdvance(path7, PathState.FEED_AFTER_7, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path7, true);
+                    setPathState(PathState.FEED_4);
+                }
                 break;
 
-            case FEED_AFTER_7:
-                feedThenAdvance(PathState.FOLLOW_PATH_8, FEED_MS);
+            case FEED_4:
+                if (handleFeeding(PathState.FOLLOW_PATH_8)) break;
                 break;
 
             case FOLLOW_PATH_8:
-                followThenAdvance(path8, PathState.FOLLOW_PATH_9, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path8, true);
+                    setPathState(PathState.FOLLOW_PATH_9);
+                }
                 break;
 
             case FOLLOW_PATH_9:
-                followThenAdvance(path9, PathState.FEED_AFTER_9, true);
+                if (!follower.isBusy()) {
+                    follower.followPath(path9, true);
+                    setPathState(PathState.FEED_5);
+                }
                 break;
 
-            case FEED_AFTER_9:
-                feedThenAdvance(PathState.DONE, FEED_MS);
+            case FEED_5:
+                if (handleFeeding(PathState.DONE)) break;
                 break;
 
             case DONE:
                 stopIntake();
                 holdTransfer();
                 setShooterSpeed(0);
-                outtake.update();
-                telemetry.addLine("Auto complete.");
                 break;
         }
+    }
+
+    /**
+     * Replaces the busySleep logic with a non-blocking timer check.
+     * Transitions between stages of the transfer sequence automatically.
+     */
+    private boolean handleFeeding(PathState nextState) {
+        double time = pathTimer.getElapsedTimeSeconds();
+
+        if (time < 0.6) {
+            robot.setTransferPower(TRANSFER_FEED_POWER); // Stage 1
+        } else if (time < 0.9) {
+            robot.setTransferPower(1.0);                // Stage 2 (Clear jam)
+        } else if (time < 1.2) {
+            robot.setTransferPower(TRANSFER_FEED_POWER); // Stage 3
+        } else {
+            holdTransfer();
+            setPathState(nextState);
+            return true;
+        }
+        return false;
     }
 
     private void buildPaths() {
         path1 = follower.pathBuilder()
                 .addPath(new BezierLine(
-                        new Pose(20.976, 123.247, 0),
-                        new Pose(50.202, 92.914, 0)
+                        new Pose(20.976, 123.247, Math.toRadians(143)),
+                        new Pose(50.202, 92.914, Math.toRadians(134))
                 ))
                 .setLinearHeadingInterpolation(Math.toRadians(143), Math.toRadians(134))
                 .build();
 
         path2 = follower.pathBuilder()
                 .addPath(new BezierCurve(
-                        new Pose(50.202, 92.914, 0),
-                        new Pose(37.292, 84.016, 0),
-                        new Pose(14.832, 83.541, 0)
+                        new Pose(50.202, 92.914, Math.toRadians(134)),
+                        new Pose(37.292, 84.016, Math.toRadians(134)),
+                        new Pose(14.832, 83.541, Math.toRadians(134))
                 ))
                 .setTangentHeadingInterpolation()
                 .setReversed()
@@ -204,19 +225,19 @@ public class PPAuto extends OpMode {
 
         path3 = follower.pathBuilder()
                 .addPath(new BezierCurve(
-                        new Pose(14.832, 83.541, 0),
-                        new Pose(34.352, 87.431, 0),
-                        new Pose(50.191, 92.953, 0)
+                        new Pose(14.832, 83.541, Math.toRadians(134)),
+                        new Pose(34.352, 87.431, Math.toRadians(134)),
+                        new Pose(50.191, 92.953, Math.toRadians(134))
                 ))
                 .setLinearHeadingInterpolation(Math.toRadians(134), Math.toRadians(134))
                 .build();
 
         path4 = follower.pathBuilder()
                 .addPath(new BezierCurve(
-                        new Pose(50.191, 92.953, 0),
-                        new Pose(55.173, 52.520, 0),
-                        new Pose(29.798, 60.802, 0),
-                        new Pose(6.942, 59.725, 0)
+                        new Pose(50.191, 92.953, Math.toRadians(134)),
+                        new Pose(55.173, 52.520, Math.toRadians(134)),
+                        new Pose(29.798, 60.802, Math.toRadians(134)),
+                        new Pose(6.942, 59.725, Math.toRadians(134))
                 ))
                 .setTangentHeadingInterpolation()
                 .setReversed()
@@ -224,19 +245,19 @@ public class PPAuto extends OpMode {
 
         path5 = follower.pathBuilder()
                 .addPath(new BezierCurve(
-                        new Pose(6.942, 59.725, 0),
-                        new Pose(37.346, 66.765, 0),
-                        new Pose(50.108, 92.736, 0)
+                        new Pose(6.942, 59.725, Math.toRadians(2)),
+                        new Pose(37.346, 66.765, Math.toRadians(2)),
+                        new Pose(50.108, 92.736, Math.toRadians(134))
                 ))
                 .setLinearHeadingInterpolation(Math.toRadians(2), Math.toRadians(134))
                 .build();
 
         path6 = follower.pathBuilder()
                 .addPath(new BezierCurve(
-                        new Pose(50.108, 92.736, 0),
-                        new Pose(48.631, 36.562, 0),
-                        new Pose(46.152, 34.542, 0),
-                        new Pose(7.537, 35.770, 0)
+                        new Pose(50.108, 92.736, Math.toRadians(134)),
+                        new Pose(48.631, 36.562, Math.toRadians(134)),
+                        new Pose(46.152, 34.542, Math.toRadians(134)),
+                        new Pose(7.537, 35.770, Math.toRadians(134))
                 ))
                 .setTangentHeadingInterpolation()
                 .setReversed()
@@ -244,16 +265,16 @@ public class PPAuto extends OpMode {
 
         path7 = follower.pathBuilder()
                 .addPath(new BezierLine(
-                        new Pose(7.537, 35.770, 0),
-                        new Pose(64.450, 15.588, 0)
+                        new Pose(7.537, 35.770, Math.toRadians(2)),
+                        new Pose(64.450, 15.588, Math.toRadians(122))
                 ))
                 .setLinearHeadingInterpolation(Math.toRadians(2), Math.toRadians(122))
                 .build();
 
         path8 = follower.pathBuilder()
                 .addPath(new BezierLine(
-                        new Pose(64.450, 15.588, 0),
-                        new Pose(6.440, 16.146, 0)
+                        new Pose(64.450, 15.588, Math.toRadians(122)),
+                        new Pose(6.440, 16.146, Math.toRadians(122))
                 ))
                 .setTangentHeadingInterpolation()
                 .setReversed()
@@ -261,8 +282,8 @@ public class PPAuto extends OpMode {
 
         path9 = follower.pathBuilder()
                 .addPath(new BezierLine(
-                        new Pose(6.440, 16.146, 0),
-                        new Pose(64.646, 15.681, 0)
+                        new Pose(6.440, 16.146, Math.toRadians(0)),
+                        new Pose(64.646, 15.681, Math.toRadians(122))
                 ))
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(122))
                 .build();
@@ -283,31 +304,4 @@ public class PPAuto extends OpMode {
     private void holdTransfer() {
         robot.setTransferPower(TRANSFER_HOLD_POWER);
     }
-
-    public void feedBallsWithTransfer(long msTotal) {
-        long t1 = msTotal / 2;
-        long t2 = msTotal / 4;
-        long t3 = msTotal - t1 - t2;
-
-        robot.setTransferPower(TRANSFER_FEED_POWER);
-        busySleep(t1);
-
-        robot.setTransferPower(1);
-        busySleep(t2);
-
-        robot.setTransferPower(TRANSFER_FEED_POWER);
-        busySleep(t3);
-
-        holdTransfer();
-    }
-
-    private void busySleep(long ms) {
-        long start = System.currentTimeMillis();
-        while (System.currentTimeMillis() - start < ms) {
-            follower.update();
-            outtake.update();
-            telemetry.update();
-        }
-    }
-
 }

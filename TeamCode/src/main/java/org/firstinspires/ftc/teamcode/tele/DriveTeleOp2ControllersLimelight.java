@@ -23,10 +23,10 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double DISTANCE_THRESHOLD = 68.0;
 
     public static double DRAWBACK_POWER = 0.3;
-    public static double LIMELIGHT_OFFSET = 4.2126;
+    public static double LIMELIGHT_OFFSET = 1.5;
 
     public static double P = 0.04;
-    public static double F = 0.07;
+    public static double F = 0.03;
     public static double DISTANCE = 0;
 
     // Strafe Tuning
@@ -78,7 +78,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
             double y = expo(gamepad1.left_stick_y);
-            double x = expo(gamepad1.left_stick_x);
+            double x = expo(-gamepad1.left_stick_x);
 
             LLResult result = limelight.getLatestResult();
 

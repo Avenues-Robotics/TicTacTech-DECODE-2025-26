@@ -19,15 +19,15 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
     public static double INTAKE_SPEED = 1.0;
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.3;
-    public static double LIMELIGHT_OFFSET = 4.2126;
+    public static double LIMELIGHT_OFFSET = 1.5;
 
     public static double P = 0.04;
-    public static double F = 0.08;
+    public static double F = 0.03;
     public static double DISTANCE = 0;
 
     // This value now scales encoder ticks/sec instead of joystick input.
     // Start very small (e.g., 0.0001) and tune.
-    public static double VELOCITY_COMPENSATION = 0.0001;
+    public static double VELOCITY_COMPENSATION = 0.2;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -69,7 +69,7 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
             double y = expo(gamepad1.left_stick_y);
-            double x = expo(gamepad1.left_stick_x);
+            double x = expo(-gamepad1.left_stick_x);
 
             LLResult result = limelight.getLatestResult();
 
