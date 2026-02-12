@@ -13,295 +13,190 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name="PP Auto Blue Close", group="Autonomous")
+@Autonomous(name="PP Auto Blue Close - With Pause", group="Autonomous")
 public class PPAutoBlueClose extends OpMode {
 
     private Follower follower;
-    private Timer pathTimer, opModeTimer;
-
-    private PathChain path1, path2, path3, path4, path5, path6, path7, path8, path9;
-
-    // Adjusted start pose heading to match path1's starting interpolation
-    private final Pose startPose = new Pose(20.976, 123.247, Math.toRadians(143));
+    private Timer pathTimer;
+    private Paths paths;
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
 
-    public static double OUTTAKE_SPEED = 525;
-    public static double INTAKE_POWER = 1.0;
-    public static double TRANSFER_FEED_POWER = -1.0;
-    public static double TRANSFER_HOLD_POWER = 0.05;
+    public static double OUTTAKE_SPEED = 540;
+    public static double DRAWBACK_POWER = 0.3;
+    public static double SHOOT_POWER = -1.0;
+
+    // --- NEW CONSTANT ---
+    public static double PAUSE_BEFORE_SHOOT = 1.0; // Seconds to wait after pathing ends
 
     public enum PathState {
-        FOLLOW_PATH_1, FEED_1,
-        FOLLOW_PATH_2,
-        FOLLOW_PATH_3, FEED_2,
-        FOLLOW_PATH_4,
-        FOLLOW_PATH_5, FEED_3,
-        FOLLOW_PATH_6,
-        FOLLOW_PATH_7, FEED_4,
-        FOLLOW_PATH_8,
-        FOLLOW_PATH_9, FEED_5,
+        DRIVE_PATH_1, SHOOT_1,
+        DRIVE_PATH_2,
+        DRIVE_PATH_3, SHOOT_2,
+        DRIVE_PATH_4,
+        DRIVE_PATH_5, SHOOT_3,
         DONE
     }
 
     private PathState pathState;
+    private boolean hasArrived = false; // Flag to track when we first stopped moving
 
     @Override
     public void init() {
         pathTimer = new Timer();
-        opModeTimer = new Timer();
-
         robot.init(hardwareMap, true);
         outtake.init(hardwareMap, telemetry);
-        robot.resetDriveEncoders();
 
         follower = Constants.createFollower(hardwareMap);
-        buildPaths();
-        follower.setPose(startPose);
+        paths = new Paths(follower);
 
-        holdTransfer();
-        startIntake();
-        setShooterSpeed(OUTTAKE_SPEED);
-
-        pathState = PathState.FOLLOW_PATH_1;
+        follower.setPose(new Pose(33.659, 135.752, Math.toRadians(90)));
+        setPathState(PathState.DRIVE_PATH_1);
     }
 
     @Override
     public void start() {
-        opModeTimer.resetTimer();
-        setPathState(PathState.FOLLOW_PATH_1);
+        follower.followPath(paths.Path1);
     }
 
     @Override
     public void loop() {
         follower.update();
-        statePathUpdate();
         outtake.update();
 
-        telemetry.addData("State", pathState);
-        telemetry.addData("X", follower.getPose().getX());
-        telemetry.addData("Y", follower.getPose().getY());
-        telemetry.update();
-    }
+        robot.setIntakePower(1.0);
+        outtake.setTVelocity(-OUTTAKE_SPEED);
 
-    private void setPathState(PathState newState) {
-        pathState = newState;
-        pathTimer.resetTimer();
-    }
-
-    private void statePathUpdate() {
         switch (pathState) {
-            case FOLLOW_PATH_1:
-                if (!follower.isBusy()) {
-                    follower.followPath(path1, true);
-                    setPathState(PathState.FEED_1);
+            case DRIVE_PATH_1:
+                robot.setTransferPower(DRAWBACK_POWER);
+                // Check if path is finished and handle the pause
+                if (checkArrivalAndPause()) {
+                    setPathState(PathState.SHOOT_1);
                 }
                 break;
 
-            case FEED_1:
-                if (handleFeeding(PathState.FOLLOW_PATH_2)) break;
-                break;
-
-            case FOLLOW_PATH_2:
-                if (!follower.isBusy()) {
-                    follower.followPath(path2, true);
-                    setPathState(PathState.FOLLOW_PATH_3);
+            case SHOOT_1:
+                if (performShootSequence(PathState.DRIVE_PATH_2)) {
+                    follower.followPath(paths.Path2, true);
                 }
                 break;
 
-            case FOLLOW_PATH_3:
+            case DRIVE_PATH_2:
+                robot.setTransferPower(DRAWBACK_POWER);
                 if (!follower.isBusy()) {
-                    follower.followPath(path3, true);
-                    setPathState(PathState.FEED_2);
+                    setPathState(PathState.DRIVE_PATH_3);
+                    follower.followPath(paths.Path3);
                 }
                 break;
 
-            case FEED_2:
-                if (handleFeeding(PathState.FOLLOW_PATH_4)) break;
-                break;
-
-            case FOLLOW_PATH_4:
-                if (!follower.isBusy()) {
-                    follower.followPath(path4, true);
-                    setPathState(PathState.FOLLOW_PATH_5);
+            case DRIVE_PATH_3:
+                robot.setTransferPower(DRAWBACK_POWER);
+                if (checkArrivalAndPause()) {
+                    setPathState(PathState.SHOOT_2);
                 }
                 break;
 
-            case FOLLOW_PATH_5:
-                if (!follower.isBusy()) {
-                    follower.followPath(path5, true);
-                    setPathState(PathState.FEED_3);
+            case SHOOT_2:
+                if (performShootSequence(PathState.DRIVE_PATH_4)) {
+                    follower.followPath(paths.Path4, true);
                 }
                 break;
 
-            case FEED_3:
-                if (handleFeeding(PathState.FOLLOW_PATH_6)) break;
-                break;
-
-            case FOLLOW_PATH_6:
+            case DRIVE_PATH_4:
+                robot.setTransferPower(DRAWBACK_POWER);
                 if (!follower.isBusy()) {
-                    follower.followPath(path6, true);
-                    setPathState(PathState.FOLLOW_PATH_7);
+                    setPathState(PathState.DRIVE_PATH_5);
+                    follower.followPath(paths.Path5);
                 }
                 break;
 
-            case FOLLOW_PATH_7:
-                if (!follower.isBusy()) {
-                    follower.followPath(path7, true);
-                    setPathState(PathState.FEED_4);
+            case DRIVE_PATH_5:
+                robot.setTransferPower(DRAWBACK_POWER);
+                if (checkArrivalAndPause()) {
+                    setPathState(PathState.SHOOT_3);
                 }
                 break;
 
-            case FEED_4:
-                if (handleFeeding(PathState.FOLLOW_PATH_8)) break;
-                break;
-
-            case FOLLOW_PATH_8:
-                if (!follower.isBusy()) {
-                    follower.followPath(path8, true);
-                    setPathState(PathState.FOLLOW_PATH_9);
+            case SHOOT_3:
+                if (performShootSequence(PathState.DONE)) {
+                    // Sequence completes
                 }
-                break;
-
-            case FOLLOW_PATH_9:
-                if (!follower.isBusy()) {
-                    follower.followPath(path9, true);
-                    setPathState(PathState.FEED_5);
-                }
-                break;
-
-            case FEED_5:
-                if (handleFeeding(PathState.DONE)) break;
                 break;
 
             case DONE:
-                stopIntake();
-                holdTransfer();
-                setShooterSpeed(0);
+                robot.setTransferPower(0);
+                robot.setIntakePower(0);
+                outtake.setTVelocity(0);
                 break;
         }
+
+        telemetry.addData("State", pathState);
+        telemetry.addData("Arrived & Waiting", hasArrived);
+        telemetry.update();
     }
 
     /**
-     * Replaces the busySleep logic with a non-blocking timer check.
-     * Transitions between stages of the transfer sequence automatically.
+     * Logic to detect arrival, start a timer, and return true
+     * only after the specified pause duration.
      */
-    private boolean handleFeeding(PathState nextState) {
-        double time = pathTimer.getElapsedTimeSeconds();
-
-        if (time < 0.6) {
-            robot.setTransferPower(TRANSFER_FEED_POWER); // Stage 1
-        } else if (time < 0.9) {
-            robot.setTransferPower(1.0);                // Stage 2 (Clear jam)
-        } else if (time < 1.2) {
-            robot.setTransferPower(TRANSFER_FEED_POWER); // Stage 3
-        } else {
-            holdTransfer();
-            setPathState(nextState);
-            return true;
+    private boolean checkArrivalAndPause() {
+        if (!follower.isBusy() && !hasArrived) {
+            // We just stopped! Start the pause timer.
+            hasArrived = true;
+            pathTimer.resetTimer();
+            return false;
         }
+
+        if (hasArrived) {
+            // We are currently in the pause period
+            return pathTimer.getElapsedTimeSeconds() >= PAUSE_BEFORE_SHOOT;
+        }
+
         return false;
     }
 
-    private void buildPaths() {
-        path1 = follower.pathBuilder()
-                .addPath(new BezierLine(
-                        new Pose(20.976, 123.247, Math.toRadians(143)),
-                        new Pose(50.202, 92.914, Math.toRadians(134))
-                ))
-                .setLinearHeadingInterpolation(Math.toRadians(143), Math.toRadians(134))
-                .build();
-
-        path2 = follower.pathBuilder()
-                .addPath(new BezierCurve(
-                        new Pose(50.202, 92.914, Math.toRadians(134)),
-                        new Pose(37.292, 84.016, Math.toRadians(134)),
-                        new Pose(14.832, 83.541, Math.toRadians(134))
-                ))
-                .setTangentHeadingInterpolation()
-                .setReversed()
-                .build();
-
-        path3 = follower.pathBuilder()
-                .addPath(new BezierCurve(
-                        new Pose(14.832, 83.541, Math.toRadians(134)),
-                        new Pose(34.352, 87.431, Math.toRadians(134)),
-                        new Pose(50.191, 92.953, Math.toRadians(134))
-                ))
-                .setLinearHeadingInterpolation(Math.toRadians(134), Math.toRadians(134))
-                .build();
-
-        path4 = follower.pathBuilder()
-                .addPath(new BezierCurve(
-                        new Pose(50.191, 92.953, Math.toRadians(134)),
-                        new Pose(55.173, 52.520, Math.toRadians(134)),
-                        new Pose(29.798, 60.802, Math.toRadians(134)),
-                        new Pose(6.942, 59.725, Math.toRadians(134))
-                ))
-                .setTangentHeadingInterpolation()
-                .setReversed()
-                .build();
-
-        path5 = follower.pathBuilder()
-                .addPath(new BezierCurve(
-                        new Pose(6.942, 59.725, Math.toRadians(2)),
-                        new Pose(37.346, 66.765, Math.toRadians(2)),
-                        new Pose(50.108, 92.736, Math.toRadians(134))
-                ))
-                .setLinearHeadingInterpolation(Math.toRadians(2), Math.toRadians(134))
-                .build();
-
-        path6 = follower.pathBuilder()
-                .addPath(new BezierCurve(
-                        new Pose(50.108, 92.736, Math.toRadians(134)),
-                        new Pose(48.631, 36.562, Math.toRadians(134)),
-                        new Pose(46.152, 34.542, Math.toRadians(134)),
-                        new Pose(7.537, 35.770, Math.toRadians(134))
-                ))
-                .setTangentHeadingInterpolation()
-                .setReversed()
-                .build();
-
-        path7 = follower.pathBuilder()
-                .addPath(new BezierLine(
-                        new Pose(7.537, 35.770, Math.toRadians(2)),
-                        new Pose(64.450, 15.588, Math.toRadians(122))
-                ))
-                .setLinearHeadingInterpolation(Math.toRadians(2), Math.toRadians(122))
-                .build();
-
-        path8 = follower.pathBuilder()
-                .addPath(new BezierLine(
-                        new Pose(64.450, 15.588, Math.toRadians(122)),
-                        new Pose(6.440, 16.146, Math.toRadians(122))
-                ))
-                .setTangentHeadingInterpolation()
-                .setReversed()
-                .build();
-
-        path9 = follower.pathBuilder()
-                .addPath(new BezierLine(
-                        new Pose(6.440, 16.146, Math.toRadians(0)),
-                        new Pose(64.646, 15.681, Math.toRadians(122))
-                ))
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(122))
-                .build();
+    private boolean performShootSequence(PathState nextState) {
+        if (pathTimer.getElapsedTimeSeconds() < 0.8) {
+            robot.setTransferPower(SHOOT_POWER);
+            return false;
+        } else {
+            robot.setTransferPower(DRAWBACK_POWER);
+            setPathState(nextState);
+            return true;
+        }
     }
 
-    private void setShooterSpeed(double speed) {
-        outtake.setTVelocity(-speed);
+    private void setPathState(PathState state) {
+        pathState = state;
+        pathTimer.resetTimer();
+        hasArrived = false; // Reset the arrival flag for the next state
     }
 
-    private void startIntake() {
-        robot.setIntakePower(INTAKE_POWER);
-    }
+    public static class Paths {
+        public PathChain Path1, Path2, Path3, Path4, Path5;
 
-    private void stopIntake() {
-        robot.setIntakePower(0);
-    }
+        public Paths(Follower follower) {
+            Path1 = follower.pathBuilder().addPath(
+                    new BezierLine(new Pose(33.659, 135.752), new Pose(59.656, 83.932))
+            ).setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(134)).build();
 
-    private void holdTransfer() {
-        robot.setTransferPower(TRANSFER_HOLD_POWER);
+            Path2 = follower.pathBuilder().addPath(
+                    new BezierLine(new Pose(59.656, 83.932), new Pose(10.959, 83.955))
+            ).setTangentHeadingInterpolation().setReversed().build();
+
+            Path3 = follower.pathBuilder().addPath(
+                    new BezierLine(new Pose(10, 83.955), new Pose(59.656, 83.932))
+            ).setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(140)).build();
+
+            Path4 = follower.pathBuilder().addPath(
+                    new BezierCurve(new Pose(59.656, 83.932), new Pose(61.460, 60.061), new Pose(8.144, 40.797))
+            ).setTangentHeadingInterpolation().setReversed().build();
+
+            Path5 = follower.pathBuilder().addPath(
+                    new BezierCurve(new Pose(8.144, 40.797), new Pose(42.194, 66.870), new Pose(59.856, 108.144))
+            ).setLinearHeadingInterpolation(Math.toRadians(2), Math.toRadians(150)).build();
+        }
     }
 }

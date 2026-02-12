@@ -19,15 +19,14 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
     public static double INTAKE_SPEED = 1.0;
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.3;
-    public static double LIMELIGHT_OFFSET = 1.5;
+    public static double LIMELIGHT_OFFSET = 6.8;
 
-    public static double P = 0.04;
-    public static double F = 0.03;
+    public static double P = 0.06;
+    public static double D = 0.002;
+    public static double F = 0.02;
     public static double DISTANCE = 0;
 
-    // This value now scales encoder ticks/sec instead of joystick input.
-    // Start very small (e.g., 0.0001) and tune.
-    public static double VELOCITY_COMPENSATION = 0.2;
+    public static double VELOCITY_COMPENSATION = 0;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -36,13 +35,15 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
     private boolean fastMode = false;
     private boolean triggerHeld = false;
     private boolean outtakeOn = false;
-    private boolean outtakeTogglePressed = false;
     private boolean isBlueAlliance = true;
 
     private double tx = 0.0;
     private double ty = 0.0;
     private boolean hasTarget = false;
     private double res_plus;
+
+    private double lastError = 0;
+    private long lastTime = 0;
 
     private double expo(double v) { return v * v * v; }
 
@@ -81,20 +82,16 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
                 DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
                 res_plus = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET/DISTANCE + Math.tan(Math.toRadians(tx))));
 
-                // Calculate real robot strafe velocity from motor encoders
                 double vFL = robot.getFl().getVelocity();
                 double vFR = robot.getFr().getVelocity();
                 double vBL = robot.getBl().getVelocity();
                 double vBR = robot.getBr().getVelocity();
 
-                // Mecanum Math: (FL + BR) - (FR + BL) isolates the strafe component
                 double measuredStrafeVelocity = (vFL + vBR) - (vFR + vBL);
-
-                // Apply compensation based on real velocity
                 res_plus += (measuredStrafeVelocity * VELOCITY_COMPENSATION);
 
                 if (DISTANCE > 68) {
-                    OUTTAKE_SPEED = 620;
+                    OUTTAKE_SPEED = 600;
                 }
                 else{
                     OUTTAKE_SPEED = 540;
@@ -107,11 +104,26 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
             double r;
 
             if (gamepad1.left_trigger >= 0.1 && hasTarget) {
-                double power = (P * res_plus) + (Math.copySign(F, res_plus));
+                long currentTime = System.currentTimeMillis();
+                double deltaTime = (currentTime - lastTime) / 1000.0;
+
+                double error = res_plus;
+                double derivative = 0;
+
+                if (deltaTime > 0) {
+                    derivative = (error - lastError) / deltaTime;
+                }
+
+                double power = (P * error) + (D * derivative) + (Math.copySign(F, error));
                 r = -power;
+
+                lastError = error;
+                lastTime = currentTime;
             }
             else {
                 r = expo(-gamepad1.right_stick_x);
+                lastError = 0;
+                lastTime = System.currentTimeMillis();
             }
 
             double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
@@ -123,12 +135,6 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
                 robot.setIntakePower(INTAKE_SPEED);
             }
 
-            if (gamepad2.right_bumper && !outtakeTogglePressed) {
-                outtakeOn = !outtakeOn;
-                outtakeTogglePressed = true;
-            }
-            if (!gamepad2.right_bumper) outtakeTogglePressed = false;
-
             if (gamepad2.left_bumper){
                 robot.setTransferPower(-1.0);
             } else if (gamepad2.x) {
@@ -139,15 +145,12 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
             }
 
             outtake.setTVelocity(-OUTTAKE_SPEED);
-
             outtake.update();
+
             telemetry.addData("Target", hasTarget);
-            telemetry.addData("Is Blue Alliance?", isBlueAlliance);
             telemetry.addData("tx", tx);
-            telemetry.addData("ty", ty);
             telemetry.addData("distance", DISTANCE);
             telemetry.addData("res plus" , res_plus);
-            telemetry.addData("reg target", OUTTAKE_SPEED);
             telemetry.update();
         }
     }
