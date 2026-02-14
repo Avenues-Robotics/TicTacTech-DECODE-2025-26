@@ -19,14 +19,16 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
     public static double INTAKE_SPEED = 1.0;
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.3;
-    public static double LIMELIGHT_OFFSET = 6.8;
+    public static double LIMELIGHT_OFFSET = 1.5;
 
-    public static double P = 0.06;
-    public static double D = 0.002;
-    public static double F = 0.02;
-    public static double DISTANCE = 0;
+    // PIDF Constants
+    public static double P = 0.08;
+    public static double D = 0.001; // Start very small
+    public static double F = 0.026;
 
-    public static double VELOCITY_COMPENSATION = 0;
+    // Low Pass Filter Gain (0.0 to 1.0)
+    // 1.0 = no filter, 0.1 = heavy smoothing
+    public static double GAIN = 0.8;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -34,13 +36,13 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
-    private boolean outtakeOn = false;
     private boolean isBlueAlliance = true;
 
     private double tx = 0.0;
     private double ty = 0.0;
     private boolean hasTarget = false;
     private double res_plus;
+    private double filtered_res_plus = 0;
 
     private double lastError = 0;
     private long lastTime = 0;
@@ -59,13 +61,14 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-
+            // Fast Mode Toggle
             if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
                 fastMode = !fastMode;
                 triggerHeld = true;
             }
             if (gamepad1.right_trigger < 0.1) triggerHeld = false;
 
+            // Pipeline Switching
             if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
             if (gamepad2.dpad_left) { isBlueAlliance = true; limelight.pipelineSwitch(1); }
 
@@ -79,38 +82,36 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
                 ty = -result.getTy();
                 hasTarget = true;
 
-                DISTANCE = 13.7795/(Math.tan(Math.toRadians(ty)));
-                res_plus = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET/DISTANCE + Math.tan(Math.toRadians(tx))));
+                double distance = 13.7795 / (Math.tan(Math.toRadians(ty)));
+                res_plus = Math.toDegrees(Math.atan(-LIMELIGHT_OFFSET / distance + Math.tan(Math.toRadians(tx))));
 
-                double vFL = robot.getFl().getVelocity();
-                double vFR = robot.getFr().getVelocity();
-                double vBL = robot.getBl().getVelocity();
-                double vBR = robot.getBr().getVelocity();
+                // Low Pass Filter to remove Limelight jitter
+                filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
 
-                double measuredStrafeVelocity = (vFL + vBR) - (vFR + vBL);
-                res_plus += (measuredStrafeVelocity * VELOCITY_COMPENSATION);
+                // Speed compensation based on strafe velocity
+                double measuredStrafeVelocity = (robot.getFl().getVelocity() + robot.getBr().getVelocity()) -
+                        (robot.getFr().getVelocity() + robot.getBl().getVelocity());
 
-                if (DISTANCE > 68) {
-                    OUTTAKE_SPEED = 600;
-                }
-                else{
-                    OUTTAKE_SPEED = 540;
-                }
-            }
-            else{
+                // Note: Velocity compensation is added to the target angle calculation
+                // You may need to tune this if it fights the D term
+                filtered_res_plus += (measuredStrafeVelocity * 0);
+
+                OUTTAKE_SPEED = (distance > 68) ? 600 : 540;
+            } else {
                 hasTarget = false;
             }
 
             double r;
-
             if (gamepad1.left_trigger >= 0.1 && hasTarget) {
-                long currentTime = System.currentTimeMillis();
-                double deltaTime = (currentTime - lastTime) / 1000.0;
+                long currentTime = System.nanoTime();
+                // deltaTime in seconds
+                double deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
 
-                double error = res_plus;
+                double error = filtered_res_plus;
                 double derivative = 0;
 
-                if (deltaTime > 0) {
+                // Only calculate D if we have a valid previous frame
+                if (deltaTime > 0 && deltaTime < 0.1) {
                     derivative = (error - lastError) / deltaTime;
                 }
 
@@ -119,38 +120,29 @@ public class DriveTeleOp2ControllersLimelightExper extends LinearOpMode {
 
                 lastError = error;
                 lastTime = currentTime;
-            }
-            else {
+            } else {
                 r = expo(-gamepad1.right_stick_x);
                 lastError = 0;
-                lastTime = System.currentTimeMillis();
+                lastTime = System.nanoTime();
+                filtered_res_plus = 0; // Reset filter when not aiming
             }
 
             double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
             robot.drive(y, x, r, scale);
 
-            if (gamepad2.left_trigger > 0.1) {
-                robot.setIntakePower(-INTAKE_SPEED);
-            } else {
-                robot.setIntakePower(INTAKE_SPEED);
-            }
+            // Intake and Transfer Logic
+            robot.setIntakePower(gamepad2.left_trigger > 0.1 ? -INTAKE_SPEED : INTAKE_SPEED);
 
-            if (gamepad2.left_bumper){
-                robot.setTransferPower(-1.0);
-            } else if (gamepad2.x) {
-                robot.setTransferPower(1.0);
-            }
-            else{
-                robot.setTransferPower(DRAWBACK_POWER);
-            }
+            if (gamepad2.left_bumper) robot.setTransferPower(-1.0);
+            else if (gamepad2.x) robot.setTransferPower(1.0);
+            else robot.setTransferPower(DRAWBACK_POWER);
 
             outtake.setTVelocity(-OUTTAKE_SPEED);
             outtake.update();
 
             telemetry.addData("Target", hasTarget);
-            telemetry.addData("tx", tx);
-            telemetry.addData("distance", DISTANCE);
-            telemetry.addData("res plus" , res_plus);
+            telemetry.addData("Res Plus (Filtered)", filtered_res_plus);
+            telemetry.addData("Loop Time (ms)", (System.nanoTime() - lastTime) / 1_000_000.0);
             telemetry.update();
         }
     }
