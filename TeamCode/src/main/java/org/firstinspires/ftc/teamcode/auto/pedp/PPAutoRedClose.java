@@ -15,8 +15,8 @@ import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
-@Autonomous(name="PP Auto Blue Far", group="Autonomous")
-public class PPAutoBlueFar extends OpMode {
+@Autonomous(name="PP Auto Red Close", group="Autonomous")
+public class PPAutoRedClose extends OpMode {
 
     private Follower follower;
     private Timer pathTimer;
@@ -29,20 +29,19 @@ public class PPAutoBlueFar extends OpMode {
     public static double DRAWBACK_POWER = 0.3;
     public static double SHOOT_POWER = -1.0;
 
-    public static double PAUSE_BEFORE_SHOOT = 1.0;
-    public static double SHOOT_TIME = 1.5;
+    public static double PAUSE_BEFORE_SHOOT = 1.0; // seconds to wait after path finishes
+    public static double SHOOT_TIME = 1.5;         // seconds to run transfer SHOOT_POWER
 
-    // ===== Mirror controls (same idea as your Red Close) =====
-    public static boolean IS_RED = false; // set true to mirror to red
+    // ===== Mirror controls for Red Close =====
+    public static boolean IS_RED = true;
 
     public enum MirrorAxis {
-        MIRROR_X, // mirror across x = FIELD_SIZE/2
-        MIRROR_Y  // mirror across y = FIELD_SIZE/2
+        MIRROR_X, // mirror across vertical line x = FIELD_SIZE/2  (x flips, y same)
+        MIRROR_Y  // mirror across horizontal line y = FIELD_SIZE/2 (y flips, x same)
     }
 
-    // Most teams mirror across Y for red/blue swap in common coordinate setups.
     public static MirrorAxis MIRROR_AXIS = MirrorAxis.MIRROR_Y;
-    public static double FIELD_SIZE = 144.0;
+    public static double FIELD_SIZE = 144.0; // inches (FTC field)
 
     public enum PathState {
         DRIVE_PATH_1, SHOOT_1,
@@ -50,7 +49,6 @@ public class PPAutoBlueFar extends OpMode {
         DRIVE_PATH_3, SHOOT_2,
         DRIVE_PATH_4,
         DRIVE_PATH_5, SHOOT_3,
-        DRIVE_PATH_6,
         DONE
     }
 
@@ -60,16 +58,15 @@ public class PPAutoBlueFar extends OpMode {
     @Override
     public void init() {
         pathTimer = new Timer();
-
         robot.init(hardwareMap, true);
         outtake.init(hardwareMap, telemetry);
 
         follower = Constants.createFollower(hardwareMap);
         paths = new Paths(follower);
 
-        // Base start pose (blue coords) -> mirrored if IS_RED
-        Pose startPoseBase = new Pose(56.182, 8.127, Math.toRadians(90));
-        follower.setPose(mirrorPose(startPoseBase));
+        // Set start pose (mirrored if IS_RED)
+        Pose startPose = mirrorPose(new Pose(33.659, 135.752, Math.toRadians(90)));
+        follower.setPose(startPose);
 
         setPathState(PathState.DRIVE_PATH_1);
     }
@@ -88,7 +85,6 @@ public class PPAutoBlueFar extends OpMode {
         outtake.setTVelocity(-OUTTAKE_SPEED);
 
         switch (pathState) {
-
             case DRIVE_PATH_1:
                 robot.setTransferPower(DRAWBACK_POWER);
                 if (checkArrivalAndPause()) setPathState(PathState.SHOOT_1);
@@ -133,14 +129,9 @@ public class PPAutoBlueFar extends OpMode {
                 break;
 
             case SHOOT_3:
-                if (performShootSequence(PathState.DRIVE_PATH_6)) {
-                    follower.followPath(paths.Path6);
+                if (performShootSequence(PathState.DONE)) {
+                    // done
                 }
-                break;
-
-            case DRIVE_PATH_6:
-                robot.setTransferPower(DRAWBACK_POWER);
-                if (!follower.isBusy()) setPathState(PathState.DONE);
                 break;
 
             case DONE:
@@ -157,6 +148,9 @@ public class PPAutoBlueFar extends OpMode {
         telemetry.update();
     }
 
+    /**
+     * Detect arrival, start a timer, and return true only after pause duration.
+     */
     private boolean checkArrivalAndPause() {
         if (!follower.isBusy() && !hasArrived) {
             hasArrived = true;
@@ -187,7 +181,7 @@ public class PPAutoBlueFar extends OpMode {
     }
 
     // =========================
-    // MIRROR MATH (same as your Red Close)
+    // MIRROR MATH
     // =========================
 
     private Pose mirrorPose(Pose p) {
@@ -195,12 +189,15 @@ public class PPAutoBlueFar extends OpMode {
 
         double x = p.getX();
         double y = p.getY();
-        double h = p.getHeading();
+        double h = p.getHeading(); // radians
 
         double center = FIELD_SIZE / 2.0;
 
         switch (MIRROR_AXIS) {
             case MIRROR_Y:
+                // mirror across y = center (flip y)
+                // position: (x, y) -> (x, 2*center - y)
+                // heading:  theta -> -theta
                 return new Pose(
                         x,
                         2.0 * center - y,
@@ -209,6 +206,9 @@ public class PPAutoBlueFar extends OpMode {
 
             case MIRROR_X:
             default:
+                // mirror across x = center (flip x)
+                // position: (x, y) -> (2*center - x, y)
+                // heading: theta -> PI - theta
                 return new Pose(
                         2.0 * center - x,
                         y,
@@ -218,10 +218,12 @@ public class PPAutoBlueFar extends OpMode {
     }
 
     private double mirrorHeadingY(double theta) {
+        // reflect across X-axis in standard math coordinates -> theta becomes -theta
         return angleWrapRad(-theta);
     }
 
     private double mirrorHeadingX(double theta) {
+        // reflect across Y-axis in standard math coordinates -> theta becomes PI - theta
         return angleWrapRad(Math.PI - theta);
     }
 
@@ -232,88 +234,79 @@ public class PPAutoBlueFar extends OpMode {
     }
 
     // =========================
-    // PATHS (base = blue coords, auto-mirrored if IS_RED)
+    // PATHS
     // =========================
     public class Paths {
-        public PathChain Path1, Path2, Path3, Path4, Path5, Path6;
+        public PathChain Path1, Path2, Path3, Path4, Path5;
 
         public Paths(Follower follower) {
+            // --- Base (Blue) poses ---
+            Pose S   = new Pose(33.659, 135.752, Math.toRadians(90));
 
-            // --- Base (Blue) poses/headings ---
-            Pose S   = new Pose(56.182, 8.127, Math.toRadians(90));
-
-            Pose P1S = new Pose(56.182, 8.127);
-            Pose P1E = new Pose(56.523, 17.120);
+            Pose P1E = new Pose(59.656, 83.932);
             double P1H0 = Math.toRadians(90);
-            double P1H1 = Math.toRadians(115);
+            double P1H1 = Math.toRadians(134);
 
-            Pose P2S = new Pose(56.523, 17.120);
-            Pose P2C = new Pose(36.03736065036161, 39.96436809810656);
-            Pose P2E = new Pose(8.821, 36.504);
+            Pose P2E = new Pose(10.959, 83.955);
 
-            Pose P3S = new Pose(8.821, 36.504);
-            Pose P3E = new Pose(56.523, 17.120);
+            Pose P3S = new Pose(10.0, 83.955);
+            Pose P3E = new Pose(59.656, 83.932);
             double P3H0 = Math.toRadians(0);
-            double P3H1 = Math.toRadians(115);
+            double P3H1 = Math.toRadians(140);
 
-            Pose P4S = new Pose(56.523, 17.120);
-            Pose P4C = new Pose(37.909, 9.458);
-            Pose P4E = new Pose(7.586, 8.301);
+            Pose P4S = new Pose(59.656, 83.932);
+            Pose P4C = new Pose(68.0, 35.902138339920945);
+            Pose P4E = new Pose(6.144, 40.797);
 
-            Pose P5S = new Pose(7.586, 8.301);
-            Pose P5E = new Pose(56.523, 17.120);
-            double P5H0 = Math.toRadians(0);
-            double P5H1 = Math.toRadians(115);
+            Pose P5S = new Pose(6.144, 40.797);
+            Pose P5C = new Pose(42.194, 66.870);
+            Pose P5E = new Pose(59.856, 108.144);
+            double P5H0 = Math.toRadians(2);
+            double P5H1 = Math.toRadians(150);
 
-            Pose P6S = new Pose(56.523, 17.120);
-            Pose P6E = new Pose(57.373, 42.185);
-
-            // --- Mirrored versions (only change if IS_RED) ---
+            // --- Mirror poses/headings if IS_RED ---
             Pose mS   = mirrorPose(S);
 
-            Pose mP1S = mirrorPose(P1S);
             Pose mP1E = mirrorPose(P1E);
-            double mP1H0 = mirrorPose(new Pose(0, 0, P1H0)).getHeading();
-            double mP1H1 = mirrorPose(new Pose(0, 0, P1H1)).getHeading();
+            double mP1H0 = mirrorPose(new Pose(0,0,P1H0)).getHeading();
+            double mP1H1 = mirrorPose(new Pose(0,0,P1H1)).getHeading();
 
-            Pose mP2S = mirrorPose(P2S);
-            Pose mP2C = mirrorPose(P2C);
             Pose mP2E = mirrorPose(P2E);
 
             Pose mP3S = mirrorPose(P3S);
             Pose mP3E = mirrorPose(P3E);
-            double mP3H0 = mirrorPose(new Pose(0, 0, P3H0)).getHeading();
-            double mP3H1 = mirrorPose(new Pose(0, 0, P3H1)).getHeading();
+            double mP3H0 = mirrorPose(new Pose(0,0,P3H0)).getHeading();
+            double mP3H1 = mirrorPose(new Pose(0,0,P3H1)).getHeading();
 
             Pose mP4S = mirrorPose(P4S);
             Pose mP4C = mirrorPose(P4C);
             Pose mP4E = mirrorPose(P4E);
 
             Pose mP5S = mirrorPose(P5S);
+            Pose mP5C = mirrorPose(P5C);
             Pose mP5E = mirrorPose(P5E);
-            double mP5H0 = mirrorPose(new Pose(0, 0, P5H0)).getHeading();
-            double mP5H1 = mirrorPose(new Pose(0, 0, P5H1)).getHeading();
-
-            Pose mP6S = mirrorPose(P6S);
-            Pose mP6E = mirrorPose(P6E);
+            double mP5H0 = mirrorPose(new Pose(0,0,P5H0)).getHeading();
+            double mP5H1 = mirrorPose(new Pose(0,0,P5H1)).getHeading();
 
             // ===== Build paths using mirrored values =====
 
             Path1 = follower.pathBuilder().addPath(
-                            new BezierLine(mP1S, mP1E)
-                    ).setLinearHeadingInterpolation(mP1H0, mP1H1)
-                    .build();
+                    new BezierLine(mS, mP1E)
+            ).setLinearHeadingInterpolation(
+                    mP1H0, mP1H1
+            ).build();
 
             Path2 = follower.pathBuilder().addPath(
-                            new BezierCurve(mP2S, mP2C, mP2E)
+                            new BezierLine(mP1E, mP2E)
                     ).setTangentHeadingInterpolation()
                     .setReversed()
                     .build();
 
             Path3 = follower.pathBuilder().addPath(
-                            new BezierLine(mP3S, mP3E)
-                    ).setLinearHeadingInterpolation(mP3H0, mP3H1)
-                    .build();
+                    new BezierLine(mP3S, mP3E)
+            ).setLinearHeadingInterpolation(
+                    mP3H0, mP3H1
+            ).build();
 
             Path4 = follower.pathBuilder().addPath(
                             new BezierCurve(mP4S, mP4C, mP4E)
@@ -322,14 +315,10 @@ public class PPAutoBlueFar extends OpMode {
                     .build();
 
             Path5 = follower.pathBuilder().addPath(
-                            new BezierLine(mP5S, mP5E)
-                    ).setLinearHeadingInterpolation(mP5H0, mP5H1)
-                    .build();
-
-            Path6 = follower.pathBuilder().addPath(
-                            new BezierLine(mP6S, mP6E)
-                    ).setTangentHeadingInterpolation()
-                    .build();
+                    new BezierCurve(mP5S, mP5C, mP5E)
+            ).setLinearHeadingInterpolation(
+                    mP5H0, mP5H1
+            ).build();
         }
     }
 }

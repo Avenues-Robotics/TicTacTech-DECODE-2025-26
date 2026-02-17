@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.auto;
+package org.firstinspires.ftc.teamcode.auto.legacy;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.hardware.limelightvision.LLResult;
@@ -13,8 +13,8 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
-@Autonomous(name = "AutoOpModularBlueClose", group = "Main")
-public class AutoOpModularBlueClose extends LinearOpMode {
+@Autonomous(name = "AutoOpModularRedClose", group = "Main")
+public class AutoOpModularRedClose extends LinearOpMode {
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
@@ -29,12 +29,12 @@ public class AutoOpModularBlueClose extends LinearOpMode {
     public static double AIM_F = 0.0;
     public static long AIM_TIMEOUT_MS = 1200;
 
-    public static double offset = -4.5;
+    public static double offset = -3;
     private static final double TICKS_PER_REV = 537.6;
     private static final double WHEEL_DIAMETER_IN = 4.0;
     private static final double TPI = TICKS_PER_REV / (Math.PI * WHEEL_DIAMETER_IN);
 
-    private boolean isBlueAlliance = true;
+    private boolean isBlueAlliance = false;
     private boolean hasTarget = false;
     private double tx = 0.0;
     private double ty = 0.0;
@@ -44,14 +44,14 @@ public class AutoOpModularBlueClose extends LinearOpMode {
     public static AutoStep step00 = new AutoStep(MoveType.DRIVE, -40, 0.75);
     public static AutoStep step01 = new AutoStep(MoveType.AIM, 0, 0);
     public static AutoStep step02 = new AutoStep(MoveType.FEED, 4000, 1);
-    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, -90, 0.5);
+    public static AutoStep step03 = new AutoStep(MoveType.ROTATE, 90, 0.5);
     public static AutoStep step04 = new AutoStep(MoveType.DRIVE, -10, 0.75);
-    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, -130, 0.5);
+    public static AutoStep step05 = new AutoStep(MoveType.ROTATE, 130, 0.5);
     public static AutoStep step06 = new AutoStep(MoveType.DRIVE, -35, 0.8);
     public static AutoStep step07 = new AutoStep(MoveType.DRIVE, 35, 0.8);
-    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, 130, 0.5);
+    public static AutoStep step08 = new AutoStep(MoveType.ROTATE, -130, 0.5);
     public static AutoStep step09 = new AutoStep(MoveType.DRIVE, 15, 0.75);
-    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, 100, 0.5);
+    public static AutoStep step10 = new AutoStep(MoveType.ROTATE, -100, 0.5);
     public static AutoStep step11 = new AutoStep(MoveType.AIM, 0, 0);
     public static AutoStep step12 = new AutoStep(MoveType.FEED, 5000, 0);
 
@@ -73,7 +73,7 @@ public class AutoOpModularBlueClose extends LinearOpMode {
         limelight.setPollRateHz(100);
         limelight.start();
 
-        setAlliance(true);
+        setAlliance(false);
 
         waitForStart();
         if (!opModeIsActive()) return;

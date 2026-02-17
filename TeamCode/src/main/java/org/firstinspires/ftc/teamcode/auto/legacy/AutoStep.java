@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.auto;
+package org.firstinspires.ftc.teamcode.auto.legacy;
 
 public class AutoStep {
     public MoveType type = MoveType.DRIVE;
