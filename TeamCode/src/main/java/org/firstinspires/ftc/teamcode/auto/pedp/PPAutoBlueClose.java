@@ -158,7 +158,7 @@ public class PPAutoBlueClose extends OpMode {
     }
 
     private boolean performShootSequence(PathState nextState) {
-        if (pathTimer.getElapsedTimeSeconds() < 0.8) {
+        if (pathTimer.getElapsedTimeSeconds() < 1.5) {
             robot.setTransferPower(SHOOT_POWER);
             return false;
         } else {
@@ -191,7 +191,7 @@ public class PPAutoBlueClose extends OpMode {
             ).setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(140)).build();
 
             Path4 = follower.pathBuilder().addPath(
-                    new BezierCurve(new Pose(59.656, 83.932), new Pose(61.460, 60.061), new Pose(8.144, 40.797))
+                    new BezierCurve(new Pose(59.656, 83.932), new Pose(68, 35.902138339920945), new Pose(8.144, 40.797))
             ).setTangentHeadingInterpolation().setReversed().build();
 
             Path5 = follower.pathBuilder().addPath(
