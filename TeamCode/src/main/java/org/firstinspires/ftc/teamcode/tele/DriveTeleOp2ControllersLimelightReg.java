@@ -13,8 +13,8 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
-@TeleOp(name = "DriveTeleOp2ControllersLimelight", group = "Main")
-public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
+@TeleOp(name = "DriveTeleOp2ControllersLimelightReg", group = "Main")
+public class DriveTeleOp2ControllersLimelightReg extends LinearOpMode {
 
     public static double FAST_MODE_SPEED = 1.0;
     public static double NORMAL_MODE_SPEED = 0.4;
@@ -64,6 +64,8 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
     private double lastError = 0.0;
     private long lastTime = 0L;
+
+    private double distance;
 
     // For plotting intake voltage (estimated)
     private VoltageSensor batterySensor;
@@ -130,7 +132,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 hasTarget = true;
 
                 // Distance model ONLY for camera offset correction
-                double distance = 13.7795 / (Math.tan(Math.toRadians(ty)));
+                distance = 13.7795 / (Math.tan(Math.toRadians(ty)));
 
                 // Sanity gate
                 if (Double.isNaN(distance) || Double.isInfinite(distance) || distance <= 0 || distance > 200) {
@@ -156,7 +158,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                     filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
 
                     // Flywheel logic (unchanged)
-                    OUTTAKE_SPEED = (distance > 68) ? 600 : 540;
+                    OUTTAKE_SPEED = (6.43642 * distance) + 164.67368;
                 }
             } else {
                 hasTarget = false;
@@ -211,21 +213,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             // Dashboard plotting: voltage + estimated intake motor voltage
             double batteryV = batterySensor.getVoltage();
             double intakeEstimatedV = batteryV * Math.abs(intakeCommand);
-            telemetry.addData("BatteryV", batteryV);
-            telemetry.addData("IntakeV_est", intakeEstimatedV);
+            telemetry.addData("Distance", distance);
+            telemetry.addData("Velocity", OUTTAKE_SPEED);
 
-            telemetry.addData("Target", hasTarget);
-            telemetry.addData("tx_deg", tx);
-            telemetry.addData("ty_deg", ty);
-            telemetry.addData("ResPlus_raw_deg", res_plus);
-            telemetry.addData("ResPlus_filt_deg", filtered_res_plus);
-            telemetry.addData("LIMELIGHT_OFFSET_in", LIMELIGHT_OFFSET);
-
-            // Velocity comp debug
-            telemetry.addData("StrafeVel_raw", measuredStrafeVel);
-            telemetry.addData("StrafeVel_filt", filteredStrafeVel);
-            telemetry.addData("STRAFE_COMP_K", STRAFE_COMP_K);
-            telemetry.addData("STRAFE_COMP_MAX_DEG", STRAFE_COMP_MAX_DEG);
 
             telemetry.update();
         }

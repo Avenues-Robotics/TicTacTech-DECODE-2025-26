@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.tele;
+package org.firstinspires.ftc.teamcode.tele.legacy;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.follower;
 

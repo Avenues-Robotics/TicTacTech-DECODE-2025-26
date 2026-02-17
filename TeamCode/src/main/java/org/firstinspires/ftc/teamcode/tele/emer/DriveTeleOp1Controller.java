@@ -32,7 +32,7 @@ public class DriveTeleOp1Controller extends LinearOpMode {
     // PIDF Constants
     public static double P = 0.02;
     public static double D = 0; // Start very small
-    public static double F = 0.003;
+    public static double F = 0.0008;
 
     // Low Pass Filter Gain (0.0 to 1.0)
     // 1.0 = no filter, 0.1 = heavy smoothing
