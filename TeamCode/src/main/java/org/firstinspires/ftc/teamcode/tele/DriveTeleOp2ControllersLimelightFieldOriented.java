@@ -9,9 +9,13 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.drivers.GoBildaPinpointDriver;
+import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
 @TeleOp(name = "FieldOriented_FULL_FEATURES", group = "Main")
@@ -79,9 +83,17 @@ public class DriveTeleOp2ControllersLimelightFieldOriented extends LinearOpMode 
         pinpoint.setOffsets(0, 0);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pinpoint.setYawScalar(HEADING_SCALAR);
-        pinpoint.resetPosAndIMU();
+        pinpoint.setPosition(new Pose2D(
+                DistanceUnit.INCH,
+                PoseStorage.currentPose.getX(),
+                PoseStorage.currentPose.getY(),
+                AngleUnit.RADIANS,
+                PoseStorage.currentPose.getHeading()
+        ));
 
         batterySensor = hardwareMap.voltageSensor.iterator().next();
+
+
 
         waitForStart();
 
@@ -103,8 +115,8 @@ public class DriveTeleOp2ControllersLimelightFieldOriented extends LinearOpMode 
             // 2. FIELD-CENTRIC CALCULATIONS
             double robotHeadingRad = pinpoint.getHeading();
 
-            double stickY = expo(-gamepad1.left_stick_y);
-            double stickX = expo(gamepad1.left_stick_x);
+            double stickY = expo(gamepad1.left_stick_y);
+            double stickX = expo(-gamepad1.left_stick_x);
             double rx = expo(-gamepad1.right_stick_x);
 
             // Field-to-Robot Rotation Matrix

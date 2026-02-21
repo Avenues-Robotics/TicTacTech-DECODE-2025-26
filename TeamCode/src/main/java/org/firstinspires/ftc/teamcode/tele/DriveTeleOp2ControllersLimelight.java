@@ -43,6 +43,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     // Smooth the measured strafe velocity (0..1). Higher = smoother.
     public static double STRAFE_VEL_FILTER_GAIN = 0.7;
 
+    public static double FARFLYWHEELSPEED = 640;
+    public static double CLOSEFLYWHEELSPEED = 580;
+
     // Clamp compensation so it can't go insane
     public static double STRAFE_COMP_MAX_DEG = 90;
     // -----------------------------------
@@ -156,7 +159,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                     filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
 
                     // Flywheel logic (unchanged)
-                    OUTTAKE_SPEED = (distance > 68) ? 600 : 540;
+                    OUTTAKE_SPEED = (distance > 97) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
                 }
             } else {
                 hasTarget = false;

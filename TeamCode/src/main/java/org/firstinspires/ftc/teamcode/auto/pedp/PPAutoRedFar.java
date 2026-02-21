@@ -13,6 +13,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
 @Autonomous(name="PP Auto Red Far", group="Autonomous")
@@ -331,5 +332,10 @@ public class PPAutoRedFar extends OpMode {
                     ).setTangentHeadingInterpolation()
                     .build();
         }
+    }
+
+    @Override
+    public void stop() {
+        PoseStorage.currentPose = follower.getPose();
     }
 }

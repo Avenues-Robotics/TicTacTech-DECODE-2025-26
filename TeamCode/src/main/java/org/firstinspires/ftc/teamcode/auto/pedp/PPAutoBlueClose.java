@@ -13,9 +13,10 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
-@Autonomous(name="PP Auto Blue Close", group="Autonomous")
+@Autonomous(name="PP Auto Blue Close Unified", group="Autonomous")
 public class PPAutoBlueClose extends OpMode {
 
     private Follower follower;
@@ -25,30 +26,29 @@ public class PPAutoBlueClose extends OpMode {
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
 
-    public static double OUTTAKE_SPEED = 540;
+    public static double OUTTAKE_SPEED = 560;
     public static double DRAWBACK_POWER = 0.3;
     public static double SHOOT_POWER = -1.0;
 
-    public static double PAUSE_BEFORE_SHOOT = 1.0; // seconds to wait after path finishes
-    public static double SHOOT_TIME = 1.5;         // seconds to run transfer SHOOT_POWER
+    public static double PAUSE_BEFORE_SHOOT = 1.0;
+    public static double SHOOT_TIME = 1.9;
 
-    // ===== Mirror controls for Red Close =====
     public static boolean IS_RED = false;
 
     public enum MirrorAxis {
-        MIRROR_X, // mirror across vertical line x = FIELD_SIZE/2  (x flips, y same)
-        MIRROR_Y  // mirror across horizontal line y = FIELD_SIZE/2 (y flips, x same)
+        MIRROR_X,
+        MIRROR_Y
     }
 
     public static MirrorAxis MIRROR_AXIS = MirrorAxis.MIRROR_Y;
-    public static double FIELD_SIZE = 144.0; // inches (FTC field)
+    public static double FIELD_SIZE = 144.0;
 
     public enum PathState {
         DRIVE_PATH_1, SHOOT_1,
         DRIVE_PATH_2,
         DRIVE_PATH_3, SHOOT_2,
-        DRIVE_PATH_4,
-        DRIVE_PATH_5, SHOOT_3,
+        INTAKE_AND_RETURN,
+        SHOOT_3,
         DONE
     }
 
@@ -64,10 +64,7 @@ public class PPAutoBlueClose extends OpMode {
         follower = Constants.createFollower(hardwareMap);
         paths = new Paths(follower);
 
-        // Set start pose (mirrored if IS_RED)
-        Pose startPose = mirrorPose(new Pose(33.659, 135.752, Math.toRadians(90)));
-        follower.setPose(startPose);
-
+        follower.setPose(paths.mStartPose);
         setPathState(PathState.DRIVE_PATH_1);
     }
 
@@ -92,7 +89,7 @@ public class PPAutoBlueClose extends OpMode {
 
             case SHOOT_1:
                 if (performShootSequence(PathState.DRIVE_PATH_2)) {
-                    follower.followPath(paths.Path2, true);
+                    follower.followPath(paths.Path2, 0.6, true);
                 }
                 break;
 
@@ -110,27 +107,20 @@ public class PPAutoBlueClose extends OpMode {
                 break;
 
             case SHOOT_2:
-                if (performShootSequence(PathState.DRIVE_PATH_4)) {
-                    follower.followPath(paths.Path4, true);
+                if (performShootSequence(PathState.INTAKE_AND_RETURN)) {
+                    // Starts the fixed unified chain
+                    follower.followPath(paths.IntakeChain, 0.6, true);
                 }
                 break;
 
-            case DRIVE_PATH_4:
-                robot.setTransferPower(DRAWBACK_POWER);
-                if (!follower.isBusy()) {
-                    setPathState(PathState.DRIVE_PATH_5);
-                    follower.followPath(paths.Path5);
-                }
-                break;
-
-            case DRIVE_PATH_5:
+            case INTAKE_AND_RETURN:
                 robot.setTransferPower(DRAWBACK_POWER);
                 if (checkArrivalAndPause()) setPathState(PathState.SHOOT_3);
                 break;
 
             case SHOOT_3:
                 if (performShootSequence(PathState.DONE)) {
-                    // done
+                    // Final Logic
                 }
                 break;
 
@@ -141,16 +131,11 @@ public class PPAutoBlueClose extends OpMode {
                 break;
         }
 
-        telemetry.addData("IS_RED", IS_RED);
-        telemetry.addData("MIRROR_AXIS", MIRROR_AXIS);
         telemetry.addData("State", pathState);
-        telemetry.addData("Arrived & Waiting", hasArrived);
+        telemetry.addData("Follower Busy", follower.isBusy());
         telemetry.update();
     }
 
-    /**
-     * Detect arrival, start a timer, and return true only after pause duration.
-     */
     private boolean checkArrivalAndPause() {
         if (!follower.isBusy() && !hasArrived) {
             hasArrived = true;
@@ -180,51 +165,18 @@ public class PPAutoBlueClose extends OpMode {
         hasArrived = false;
     }
 
-    // =========================
-    // MIRROR MATH
-    // =========================
-
     private Pose mirrorPose(Pose p) {
         if (!IS_RED) return p;
-
         double x = p.getX();
         double y = p.getY();
-        double h = p.getHeading(); // radians
-
+        double h = p.getHeading();
         double center = FIELD_SIZE / 2.0;
 
-        switch (MIRROR_AXIS) {
-            case MIRROR_Y:
-                // mirror across y = center (flip y)
-                // position: (x, y) -> (x, 2*center - y)
-                // heading:  theta -> -theta
-                return new Pose(
-                        x,
-                        2.0 * center - y,
-                        mirrorHeadingY(h)
-                );
-
-            case MIRROR_X:
-            default:
-                // mirror across x = center (flip x)
-                // position: (x, y) -> (2*center - x, y)
-                // heading: theta -> PI - theta
-                return new Pose(
-                        2.0 * center - x,
-                        y,
-                        mirrorHeadingX(h)
-                );
+        if (MIRROR_AXIS == MirrorAxis.MIRROR_Y) {
+            return new Pose(x, 2.0 * center - y, angleWrapRad(-h));
+        } else {
+            return new Pose(2.0 * center - x, y, angleWrapRad(Math.PI - h));
         }
-    }
-
-    private double mirrorHeadingY(double theta) {
-        // reflect across X-axis in standard math coordinates -> theta becomes -theta
-        return angleWrapRad(-theta);
-    }
-
-    private double mirrorHeadingX(double theta) {
-        // reflect across Y-axis in standard math coordinates -> theta becomes PI - theta
-        return angleWrapRad(Math.PI - theta);
     }
 
     private double angleWrapRad(double r) {
@@ -233,92 +185,74 @@ public class PPAutoBlueClose extends OpMode {
         return r;
     }
 
-    // =========================
-    // PATHS
-    // =========================
     public class Paths {
-        public PathChain Path1, Path2, Path3, Path4, Path5;
+        public PathChain Path1, Path2, Path3, IntakeChain;
+        public Pose mStartPose;
 
         public Paths(Follower follower) {
-            // --- Base (Blue) poses ---
-            Pose S   = new Pose(33.659, 135.752, Math.toRadians(90));
+            // Poses
+            Pose shootingPos = new Pose(50.656, 88.932, Math.toRadians(130));
+            Pose startPose = new Pose(33.659, 135.752, Math.toRadians(90));
+            Pose intake1 = new Pose(10.959, 78.955, Math.toRadians(0));
+            Pose intakeEntrance = new Pose(42.093, 55.797, Math.toRadians(0));
+            Pose intakeDeep = new Pose(4.784, 55.797, Math.toRadians(0));
 
-            Pose P1E = new Pose(59.656, 83.932);
-            double P1H0 = Math.toRadians(90);
-            double P1H1 = Math.toRadians(134);
+            // Control Points for curves
+            Pose control4 = new Pose(68.0, 35.902);
+            Pose control5 = new Pose(42.194, 66.870);
 
-            Pose P2E = new Pose(10.959, 83.955);
+            // Mirrored Poses
+            mStartPose = mirrorPose(startPose);
+            Pose mShoot = mirrorPose(shootingPos);
+            Pose mIntake1 = mirrorPose(intake1);
+            Pose mIntakeEntrance = mirrorPose(intakeEntrance);
+            Pose mIntakeDeep = mirrorPose(intakeDeep);
+            Pose mC4 = mirrorPose(new Pose(control4.getX(), control4.getY(), 0));
+            Pose mC5 = mirrorPose(new Pose(control5.getX(), control5.getY(), 0));
 
-            Pose P3S = new Pose(10.0, 83.955);
-            Pose P3E = new Pose(59.656, 83.932);
-            double P3H0 = Math.toRadians(0);
-            double P3H1 = Math.toRadians(140);
+            // Headings for Interpolation
+            double hStart = mStartPose.getHeading();
+            double hShoot = mShoot.getHeading();     // 130 Degrees
+            double hIntake = mIntakeEntrance.getHeading(); // 0 Degrees
 
-            Pose P4S = new Pose(59.656, 83.932);
-            Pose P4C = new Pose(68.0, 35.902138339920945);
-            Pose P4E = new Pose(6.144, 40.797);
 
-            Pose P5S = new Pose(6.144, 40.797);
-            Pose P5C = new Pose(42.194, 66.870);
-            Pose P5E = new Pose(59.856, 108.144);
-            double P5H0 = Math.toRadians(2);
-            double P5H1 = Math.toRadians(150);
+            // Path 1: Start to Shoot 1
+            Path1 = follower.pathBuilder()
+                    .addPath(new BezierLine(mStartPose, mShoot))
+                    .setLinearHeadingInterpolation(hStart, hShoot)
+                    .build();
 
-            // --- Mirror poses/headings if IS_RED ---
-            Pose mS   = mirrorPose(S);
-
-            Pose mP1E = mirrorPose(P1E);
-            double mP1H0 = mirrorPose(new Pose(0,0,P1H0)).getHeading();
-            double mP1H1 = mirrorPose(new Pose(0,0,P1H1)).getHeading();
-
-            Pose mP2E = mirrorPose(P2E);
-
-            Pose mP3S = mirrorPose(P3S);
-            Pose mP3E = mirrorPose(P3E);
-            double mP3H0 = mirrorPose(new Pose(0,0,P3H0)).getHeading();
-            double mP3H1 = mirrorPose(new Pose(0,0,P3H1)).getHeading();
-
-            Pose mP4S = mirrorPose(P4S);
-            Pose mP4C = mirrorPose(P4C);
-            Pose mP4E = mirrorPose(P4E);
-
-            Pose mP5S = mirrorPose(P5S);
-            Pose mP5C = mirrorPose(P5C);
-            Pose mP5E = mirrorPose(P5E);
-            double mP5H0 = mirrorPose(new Pose(0,0,P5H0)).getHeading();
-            double mP5H1 = mirrorPose(new Pose(0,0,P5H1)).getHeading();
-
-            // ===== Build paths using mirrored values =====
-
-            Path1 = follower.pathBuilder().addPath(
-                    new BezierLine(mS, mP1E)
-            ).setLinearHeadingInterpolation(
-                    mP1H0, mP1H1
-            ).build();
-
-            Path2 = follower.pathBuilder().addPath(
-                            new BezierLine(mP1E, mP2E)
-                    ).setTangentHeadingInterpolation()
+            // Path 2: Shoot 1 back to Intake 1
+            Path2 = follower.pathBuilder()
+                    .addPath(new BezierLine(mShoot, mIntake1))
+                    .setTangentHeadingInterpolation()
                     .setReversed()
                     .build();
 
-            Path3 = follower.pathBuilder().addPath(
-                    new BezierLine(mP3S, mP3E)
-            ).setLinearHeadingInterpolation(
-                    mP3H0, mP3H1
-            ).build();
-
-            Path4 = follower.pathBuilder().addPath(
-                            new BezierCurve(mP4S, mP4C, mP4E)
-                    ).setTangentHeadingInterpolation()
-                    .setReversed()
+            // Path 3: Intake 1 back to Shoot 2
+            Path3 = follower.pathBuilder()
+                    .addPath(new BezierLine(mIntake1, mShoot))
+                    .setLinearHeadingInterpolation(mIntake1.getHeading(), hShoot)
                     .build();
 
-            Path5 = follower.pathBuilder().addPath(
-                    new BezierCurve(mP5S, mP5C, mP5E)
-            ).setLinearHeadingInterpolation(
-                    mP5H0, mP5H1
-            ).build();
+            IntakeChain = follower.pathBuilder()
+                    // Segment 4: Curve to intake line
+                    .addPath(new BezierCurve(mShoot, mC4, mIntakeEntrance))
+                    .setLinearHeadingInterpolation(hShoot, hIntake)
+
+                    // Segment 4.5: Drive into balls
+                    .addPath(new BezierLine(mIntakeEntrance, mIntakeDeep))
+                    .setConstantHeadingInterpolation(hIntake)
+
+                    // Segment 5: Return to shooter
+                    .addPath(new BezierCurve(mIntakeDeep, mC5, mShoot))
+                    .setLinearHeadingInterpolation(hIntake, hShoot)
+                    .build();
         }
+    }
+
+    @Override
+    public void stop() {
+        PoseStorage.currentPose = follower.getPose();
     }
 }
