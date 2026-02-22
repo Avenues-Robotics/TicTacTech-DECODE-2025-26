@@ -337,5 +337,6 @@ public class PPAutoRedFar extends OpMode {
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
+        PoseStorage.isBlue = false;
     }
 }

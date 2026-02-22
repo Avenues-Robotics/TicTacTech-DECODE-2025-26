@@ -239,5 +239,6 @@ public class PPAutoBlueCloseExper extends OpMode {
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
+        PoseStorage.isBlue = true;
     }
 }

@@ -8,6 +8,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
+import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
@@ -56,10 +57,11 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
-    private boolean isBlueAlliance = true;
+    private boolean isBlueAlliance;
 
     private double tx = 0.0;
     private double ty = 0.0;
+    private double ta = 0.0;
     private boolean hasTarget = false;
 
     private double res_plus = 0.0;
@@ -81,6 +83,12 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         return Math.max(lo, Math.min(hi, v));
     }
 
+    public double getDistanceFromTag(double ta){
+        double a = 30000; // first multi
+        double b = -2;
+        return a * (Math.pow(ta, b)); // https://mycurvefit.com/
+    }
+
     @Override
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
@@ -93,6 +101,14 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         limelight.start();
 
         batterySensor = hardwareMap.voltageSensor.iterator().next();
+
+        isBlueAlliance = PoseStorage.isBlue;
+        if (isBlueAlliance){
+            limelight.pipelineSwitch(1);
+        }
+        else{
+            limelight.pipelineSwitch(0);
+        }
 
         waitForStart();
 
@@ -130,10 +146,13 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 // Camera upside down => keep your sign flips
                 tx = -result.getTx();
                 ty = -result.getTy();
+                ta = result.getTa();
+
                 hasTarget = true;
 
                 // Distance model ONLY for camera offset correction
-                double distance = 13.7795 / (Math.tan(Math.toRadians(ty)));
+                double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
+                // double distance = getDistanceFromTag(result.getTa());
 
                 // Sanity gate
                 if (Double.isNaN(distance) || Double.isInfinite(distance) || distance <= 0 || distance > 200) {
@@ -214,21 +233,12 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             // Dashboard plotting: voltage + estimated intake motor voltage
             double batteryV = batterySensor.getVoltage();
             double intakeEstimatedV = batteryV * Math.abs(intakeCommand);
-            telemetry.addData("BatteryV", batteryV);
-            telemetry.addData("IntakeV_est", intakeEstimatedV);
 
             telemetry.addData("Target", hasTarget);
-            telemetry.addData("tx_deg", tx);
-            telemetry.addData("ty_deg", ty);
-            telemetry.addData("ResPlus_raw_deg", res_plus);
-            telemetry.addData("ResPlus_filt_deg", filtered_res_plus);
-            telemetry.addData("LIMELIGHT_OFFSET_in", LIMELIGHT_OFFSET);
+            if (result != null) {
+                telemetry.addData("Target Area", result.getTa());
+            }
 
-            // Velocity comp debug
-            telemetry.addData("StrafeVel_raw", measuredStrafeVel);
-            telemetry.addData("StrafeVel_filt", filteredStrafeVel);
-            telemetry.addData("STRAFE_COMP_K", STRAFE_COMP_K);
-            telemetry.addData("STRAFE_COMP_MAX_DEG", STRAFE_COMP_MAX_DEG);
 
             telemetry.update();
         }
