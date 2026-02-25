@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.auto.pedp;
+package org.firstinspires.ftc.teamcode.auto.legacy;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
@@ -16,8 +16,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
-@Autonomous(name="PP Auto Red Far", group="Autonomous")
-public class PPAutoRedFar extends OpMode {
+@Autonomous(name="PP Auto Blue Far", group="Autonomous")
+public class PPAutoBlueFar extends OpMode {
 
     private Follower follower;
     private Timer pathTimer;
@@ -34,7 +34,7 @@ public class PPAutoRedFar extends OpMode {
     public static double SHOOT_TIME = 1.5;
 
     // ===== Mirror controls (same idea as your Red Close) =====
-    public static boolean IS_RED = true; // set true to mirror to red
+    public static boolean IS_RED = false; // set true to mirror to red
 
     public enum MirrorAxis {
         MIRROR_X, // mirror across x = FIELD_SIZE/2
@@ -337,6 +337,6 @@ public class PPAutoRedFar extends OpMode {
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
-        PoseStorage.isBlue = false;
+        PoseStorage.isBlue = true;
     }
 }

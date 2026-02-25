@@ -26,7 +26,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
     // POI enabled: tx/ty already point at the backboard aim point.
     // Camera LEFT => negative (inches)
-    public static double LIMELIGHT_OFFSET = 3;
+    public static double LIMELIGHT_OFFSET = 6;
 
     // PIDF Constants
     public static double P = 0.025;
@@ -83,10 +83,14 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    public double getDistanceFromTag(double ta){
-        double a = 30000; // first multi
-        double b = -2;
-        return a * (Math.pow(ta, b)); // https://mycurvefit.com/
+    public double getDistanceFromTag(double ta) {
+        // If the target is too small to be reliable, return a default or 0
+        // Limelight TA is usually 0-100. 0.05 is a tiny sliver of the screen.
+        if (ta < 0.05) return 100000;
+
+        double a = 3758;
+        double b = -1.95;
+        return a * (Math.pow(ta, b));
     }
 
     @Override
@@ -152,7 +156,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
                 // Distance model ONLY for camera offset correction
                 double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
-                // double distance = getDistanceFromTag(result.getTa());
+                //double distance = getDistanceFromTag(result.getTa());
 
                 // Sanity gate
                 if (Double.isNaN(distance) || Double.isInfinite(distance) || distance <= 0 || distance > 200) {
@@ -178,7 +182,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                     filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
 
                     // Flywheel logic (unchanged)
-                    OUTTAKE_SPEED = (distance > 97) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
+                    OUTTAKE_SPEED = (getDistanceFromTag(result.getTa()) > 30000) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
                 }
             } else {
                 hasTarget = false;
@@ -238,6 +242,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             if (result != null) {
                 telemetry.addData("Target Area", result.getTa());
             }
+            telemetry.addData("Distance", getDistanceFromTag(result.getTa()));
 
 
             telemetry.update();

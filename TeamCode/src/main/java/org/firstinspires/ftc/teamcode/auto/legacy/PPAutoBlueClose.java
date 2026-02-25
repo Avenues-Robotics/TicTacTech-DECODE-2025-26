@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.auto.pedp;
+package org.firstinspires.ftc.teamcode.auto.legacy;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
@@ -16,8 +16,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
-@Autonomous(name="PP Auto Red Close Unified", group="Autonomous")
-public class PPAutoRedClose extends OpMode {
+@Autonomous(name="PP Auto Blue Close Unified", group="Autonomous")
+public class PPAutoBlueClose extends OpMode {
 
     private Follower follower;
     private Timer pathTimer;
@@ -27,13 +27,13 @@ public class PPAutoRedClose extends OpMode {
     private final DualOuttakeEx outtake = new DualOuttakeEx();
 
     public static double OUTTAKE_SPEED = 560;
-    public static double DRAWBACK_POWER = 0.6;
+    public static double DRAWBACK_POWER = 0.3;
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1.0;
-    public static double SHOOT_TIME = 1.5;
+    public static double SHOOT_TIME = 1.9;
 
-    public static boolean IS_RED = true;
+    public static boolean IS_RED = false;
 
     public enum MirrorAxis {
         MIRROR_X,
@@ -89,7 +89,7 @@ public class PPAutoRedClose extends OpMode {
 
             case SHOOT_1:
                 if (performShootSequence(PathState.DRIVE_PATH_2)) {
-                    follower.followPath(paths.Path2, true);
+                    follower.followPath(paths.Path2, 0.6, true);
                 }
                 break;
 
@@ -109,7 +109,7 @@ public class PPAutoRedClose extends OpMode {
             case SHOOT_2:
                 if (performShootSequence(PathState.INTAKE_AND_RETURN)) {
                     // Starts the fixed unified chain
-                    follower.followPath(paths.IntakeChain, true);
+                    follower.followPath(paths.IntakeChain, 0.6, true);
                 }
                 break;
 
@@ -191,11 +191,11 @@ public class PPAutoRedClose extends OpMode {
 
         public Paths(Follower follower) {
             // Poses
-            Pose shootingPos = new Pose(48.656, 85.932, Math.toRadians(125));
+            Pose shootingPos = new Pose(50.656, 88.932, Math.toRadians(130));
             Pose startPose = new Pose(33.659, 135.752, Math.toRadians(90));
-            Pose intake1 = new Pose(10.959, 83.955, Math.toRadians(0));
+            Pose intake1 = new Pose(10.959, 78.955, Math.toRadians(0));
             Pose intakeEntrance = new Pose(42.093, 55.797, Math.toRadians(0));
-            Pose intakeDeep = new Pose(8.784, 55.797, Math.toRadians(0));
+            Pose intakeDeep = new Pose(4.784, 55.797, Math.toRadians(0));
 
             // Control Points for curves
             Pose control4 = new Pose(68.0, 35.902);
@@ -227,7 +227,6 @@ public class PPAutoRedClose extends OpMode {
                     .addPath(new BezierLine(mShoot, mIntake1))
                     .setTangentHeadingInterpolation()
                     .setReversed()
-                    .setVelocityConstraint(30)
                     .build();
 
             // Path 3: Intake 1 back to Shoot 2
@@ -236,20 +235,16 @@ public class PPAutoRedClose extends OpMode {
                     .setLinearHeadingInterpolation(mIntake1.getHeading(), hShoot)
                     .build();
 
-            // --- THE CRITICAL FIX ---
             IntakeChain = follower.pathBuilder()
-                    .setVelocityConstraint(30)
-                    // Segment 4: Linear transition from 130 to 0 degrees
+                    // Segment 4: Curve to intake line
                     .addPath(new BezierCurve(mShoot, mC4, mIntakeEntrance))
                     .setLinearHeadingInterpolation(hShoot, hIntake)
 
-                    // Segment 4.5: Drive into balls (STAYS REVERSED to prevent spin)
-                    .setVelocityConstraint(30)
+                    // Segment 4.5: Drive into balls
                     .addPath(new BezierLine(mIntakeEntrance, mIntakeDeep))
                     .setConstantHeadingInterpolation(hIntake)
 
-
-                    // Segment 5: Return to shooter (Forward movement)
+                    // Segment 5: Return to shooter
                     .addPath(new BezierCurve(mIntakeDeep, mC5, mShoot))
                     .setLinearHeadingInterpolation(hIntake, hShoot)
                     .build();
@@ -259,6 +254,6 @@ public class PPAutoRedClose extends OpMode {
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
-        PoseStorage.isBlue = false;
+        PoseStorage.isBlue = true;
     }
 }

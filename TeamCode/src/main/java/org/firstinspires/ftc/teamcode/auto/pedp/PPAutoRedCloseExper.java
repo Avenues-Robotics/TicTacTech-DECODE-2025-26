@@ -29,18 +29,17 @@ public class PPAutoRedCloseExper extends OpMode {
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1;
-    // New pause constant for the intake transition
     public static double PAUSE_BEFORE_INTAKE = 0.5;
     public static double SHOOT_TIME = 1.9;
 
     public static boolean IS_RED = true;
-    public enum MirrorAxis { MIRROR_X, MIRROR_Y }
-    public static MirrorAxis MIRROR_AXIS = MirrorAxis.MIRROR_Y;
     public static double FIELD_SIZE = 144.0;
 
     public enum PathState {
         PATH_1, SHOOT_1,
-        PATH_2, PATH_3, PATH_4, SHOOT_2,
+        PATH_2, PATH_3,
+        PATH_GATE_ENTER, PATH_GATE_PRESS, // Split states
+        PATH_4, SHOOT_2,
         PATH_5, PATH_6, PATH_7, SHOOT_3,
         PATH_8, DONE
     }
@@ -86,7 +85,6 @@ public class PPAutoRedCloseExper extends OpMode {
                 break;
 
             case PATH_2:
-                // Modified to include the pause before Path 3
                 if (checkArrivalAndPause(PAUSE_BEFORE_INTAKE)) {
                     setPathState(PathState.PATH_3);
                     follower.followPath(paths.Path3);
@@ -94,6 +92,20 @@ public class PPAutoRedCloseExper extends OpMode {
                 break;
 
             case PATH_3:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.PATH_GATE_ENTER);
+                    follower.followPath(paths.PathGateEnter);
+                }
+                break;
+
+            case PATH_GATE_ENTER:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.PATH_GATE_PRESS);
+                    follower.followPath(paths.PathGatePress);
+                }
+                break;
+
+            case PATH_GATE_PRESS:
                 if (!follower.isBusy()) {
                     setPathState(PathState.PATH_4);
                     follower.followPath(paths.Path4);
@@ -148,11 +160,9 @@ public class PPAutoRedCloseExper extends OpMode {
         robot.setTransferPower(pathState.name().contains("SHOOT") ? SHOOT_POWER : DRAWBACK_POWER);
 
         telemetry.addData("State", pathState);
-        telemetry.addData("Timer", pathTimer.getElapsedTimeSeconds());
         telemetry.update();
     }
 
-    // Updated helper to accept a custom pause duration
     private boolean checkArrivalAndPause(double pauseDuration) {
         if (!follower.isBusy() && !hasArrived) {
             hasArrived = true;
@@ -190,26 +200,36 @@ public class PPAutoRedCloseExper extends OpMode {
     }
 
     public class Paths {
-        public com.pedropathing.paths.Path Path1, Path2, Path3, Path4, Path5, Path6, Path7, Path8;
+        public com.pedropathing.paths.Path Path1, Path2, Path3, PathGateEnter, PathGatePress, Path4, Path5, Path6, Path7, Path8;
         public Pose mStartPose;
 
         public Paths(Follower follower) {
+            // Raw Field Coordinates (Inches)
             Pose pStart = new Pose(33.456, 134.533, Math.toRadians(90));
             Pose pShoot = new Pose(55.656, 90.932, Math.toRadians(130));
             Pose pI1Ent = new Pose(50.000, 86.760, Math.toRadians(0));
             Pose pI1Dp  = new Pose(13.574, 86.760, Math.toRadians(0));
+
+            // GATE SEQUENCE POSES
+            Pose pGateEnter = new Pose(25.574, 79.760, Math.toRadians(0)); // Alignment position
+            Pose pGatePress = new Pose(16.000, 79.977, Math.toRadians(0)); // Press/Through position
+
             Pose pI2Ent = new Pose(50.000, 61.797, Math.toRadians(0));
             Pose pI2Dp  = new Pose(9.784, 61.797, Math.toRadians(0));
             Pose pPark  = new Pose(23.661, 65.977, Math.toRadians(0));
 
+            // Mirror logic for Alliance compatibility
             mStartPose = mirrorPose(pStart);
             Pose mShoot = mirrorPose(pShoot);
             Pose mI1Ent = mirrorPose(pI1Ent);
             Pose mI1Dp  = mirrorPose(pI1Dp);
+            Pose mGateEnter = mirrorPose(pGateEnter);
+            Pose mGatePress = mirrorPose(pGatePress);
             Pose mI2Ent = mirrorPose(pI2Ent);
             Pose mI2Dp  = mirrorPose(pI2Dp);
             Pose mPark  = mirrorPose(pPark);
 
+            // Path Definitions
             Path1 = new com.pedropathing.paths.Path(new BezierLine(mStartPose, mShoot));
             Path1.setLinearHeadingInterpolation(mStartPose.getHeading(), mShoot.getHeading());
 
@@ -219,8 +239,17 @@ public class PPAutoRedCloseExper extends OpMode {
             Path3 = new com.pedropathing.paths.Path(new BezierLine(mI1Ent, mI1Dp));
             Path3.setConstantHeadingInterpolation(mI1Dp.getHeading());
 
-            Path4 = new com.pedropathing.paths.Path(new BezierLine(mI1Dp, mShoot));
-            Path4.setLinearHeadingInterpolation(mI1Dp.getHeading(), mShoot.getHeading());
+            // Go to the entry point of the Gate
+            PathGateEnter = new com.pedropathing.paths.Path(new BezierLine(mI1Dp, mGateEnter));
+            PathGateEnter.setLinearHeadingInterpolation(mI1Dp.getHeading(), mGateEnter.getHeading());
+
+            // Press through the Gate
+            PathGatePress = new com.pedropathing.paths.Path(new BezierLine(mGateEnter, mGatePress));
+            PathGatePress.setConstantHeadingInterpolation(mGatePress.getHeading());
+
+            // Return to shooting position
+            Path4 = new com.pedropathing.paths.Path(new BezierLine(mGatePress, mShoot));
+            Path4.setLinearHeadingInterpolation(mGatePress.getHeading(), mShoot.getHeading());
 
             Path5 = new com.pedropathing.paths.Path(new BezierLine(mShoot, mI2Ent));
             Path5.setLinearHeadingInterpolation(mShoot.getHeading(), mI2Ent.getHeading());
