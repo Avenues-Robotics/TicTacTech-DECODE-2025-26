@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.follower;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.geometry.Pose;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -11,6 +12,7 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
+@Disabled
 @TeleOp(name = "DriveTeleOp2ControllersOdomRed", group = "Main")
 public class DriveTeleOp2ControllersOdometeryRed extends LinearOpMode {
 

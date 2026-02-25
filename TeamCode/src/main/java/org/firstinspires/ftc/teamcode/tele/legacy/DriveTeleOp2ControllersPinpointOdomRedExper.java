@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.tele.legacy;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -12,6 +13,7 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 
 @Config
+@Disabled
 @TeleOp(name = "DriveTeleOp2ControllersPinpointOdomRed", group = "Main")
 public class DriveTeleOp2ControllersPinpointOdomRedExper extends LinearOpMode {
 
