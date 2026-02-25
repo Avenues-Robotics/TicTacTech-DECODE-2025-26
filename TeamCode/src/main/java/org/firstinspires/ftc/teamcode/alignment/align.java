@@ -1,11 +1,13 @@
 package org.firstinspires.ftc.teamcode.alignment;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 @Config
+@Disabled
 @TeleOp(name = "align", group = "Main")
 public class align extends LinearOpMode {
 
