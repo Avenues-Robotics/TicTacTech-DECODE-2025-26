@@ -22,7 +22,12 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double INTAKE_SPEED = 1.0;
     public static double DRAWBACK_POWER = 0.3;
 
-    public static double LIMELIGHT_OFFSET_IN = 6.0;
+    /**
+     * Enter how many inches the ROBOT CENTER is to the LEFT of the camera.
+     * Example: camera is 6" to the RIGHT of robot center -> ROBOT_LEFT_OF_CAMERA_IN = 6
+     * Example: camera is 2" to the LEFT of robot center -> ROBOT_LEFT_OF_CAMERA_IN = -2
+     */
+    public static double ROBOT_LEFT_OF_CAMERA_IN = 6.0;
 
     public static double P = 0.025;
     public static double D = 0.0;
@@ -70,14 +75,28 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         return now && !wasHeld;
     }
 
-    private double distanceFromTaInches(double ta) {
+    /**
+     * Aiming distance formula you requested (uses ty in degrees).
+     * NOTE: if ty is near 0, this can blow up (infinite/huge distance).
+     */
+    private double distanceFromTyInches(double tyDeg) {
+        double t = Math.tan(Math.toRadians(tyDeg));
+        if (Math.abs(t) < 1e-6) return Double.POSITIVE_INFINITY;
+        return 13.7795 / t;
+    }
+
+    /**
+     * Distance used for velocity selection (kept TA-based as you requested).
+     * This is your existing TA->distance model.
+     */
+    private double getDistanceFromTag(double ta) {
         if (ta < 0.05) return Double.POSITIVE_INFINITY;
         double a = 3758.0;
         double b = -1.95;
         return a * Math.pow(ta, b);
     }
 
-    private void updateLimelight(boolean isBlueAlliance) {
+    private void updateLimelight() {
         LLResult result = limelight.getLatestResult();
         if (result == null || !result.isValid()) {
             hasTarget = false;
@@ -89,21 +108,29 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         tyDeg = -result.getTy();
         ta = result.getTa();
 
-        double aimErrorDeg = computeAimErrorDeg(txDeg, ta);
+        // --- Aiming: use TY distance formula (requested) + left-of-camera offset (requested) ---
+        double aimErrorDeg = computeAimErrorDeg(txDeg, tyDeg);
         filteredAimErrorDeg = (AIM_FILTER_GAIN * aimErrorDeg) + ((1.0 - AIM_FILTER_GAIN) * filteredAimErrorDeg);
 
-        double dist = distanceFromTaInches(ta);
-        outtake.setTVelocity(-(Double.isFinite(dist) && dist > 60.0 ? FAR_FLYWHEEL_SPEED : CLOSE_FLYWHEEL_SPEED));
+        // --- Velocity: use TA distance model (requested) ---
+        double distance = getDistanceFromTag(ta);
+        outtake.setTVelocity(-(Double.isFinite(distance) && distance > 60.0 ? FAR_FLYWHEEL_SPEED : CLOSE_FLYWHEEL_SPEED));
     }
 
-    private double computeAimErrorDeg(double txDeg, double ta) {
-        double dist = distanceFromTaInches(ta);
+    /**
+     * Converts tx into an aim error for ROBOT CENTER using:
+     * 1) distance from TY formula
+     * 2) lateral offset ROBOT_LEFT_OF_CAMERA_IN
+     * 3) optional strafe-velocity compensation
+     */
+    private double computeAimErrorDeg(double txDeg, double tyDeg) {
+        double dist = distanceFromTyInches(tyDeg);
         if (!Double.isFinite(dist) || dist <= 0.0) {
             return txDeg;
         }
 
         double lateralCameraIn = dist * Math.tan(Math.toRadians(txDeg));
-        double lateralRobotCenterIn = lateralCameraIn - LIMELIGHT_OFFSET_IN;
+        double lateralRobotCenterIn = lateralCameraIn + ROBOT_LEFT_OF_CAMERA_IN;
 
         double errorDeg = Math.toDegrees(Math.atan2(lateralRobotCenterIn, dist));
 
@@ -144,8 +171,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     }
 
     private void updateDrive() {
-        if (pressed(gamepad1.right_trigger > 0.1, fastToggleHeld)) fastMode = !fastMode;
-        fastToggleHeld = gamepad1.right_trigger > 0.1;
+        boolean fastToggleNow = gamepad1.right_trigger > 0.1;
+        if (pressed(fastToggleNow, fastToggleHeld)) fastMode = !fastMode;
+        fastToggleHeld = fastToggleNow;
 
         double y = expo(gamepad1.left_stick_y);
         double x = expo(-gamepad1.left_stick_x);
@@ -191,7 +219,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             if (gamepad2.dpad_left)  { isBlueAlliance = true;  limelight.pipelineSwitch(1); }
 
             updateStrafeVelocityFilter();
-            updateLimelight(isBlueAlliance);
+            updateLimelight();
             updateDrive();
 
             updateIntakeAndTransfer();
@@ -202,8 +230,11 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
             telemetry.addData("hasTarget", hasTarget);
             telemetry.addData("txDeg", txDeg);
+            telemetry.addData("tyDeg", tyDeg);
             telemetry.addData("ta", ta);
             telemetry.addData("aimErrDeg", filteredAimErrorDeg);
+            telemetry.addData("distAim_ty_in", distanceFromTyInches(tyDeg));
+            telemetry.addData("distVel_ta_in", getDistanceFromTag(ta));
             telemetry.addData("intakeV_est", intakeEstimatedV);
             telemetry.update();
         }
