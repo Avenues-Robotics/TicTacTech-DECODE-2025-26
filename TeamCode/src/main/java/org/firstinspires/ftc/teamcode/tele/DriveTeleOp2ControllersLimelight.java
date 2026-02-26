@@ -155,33 +155,25 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 hasTarget = true;
 
                 // Distance model ONLY for camera offset correction
-                double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
-                //double distance = getDistanceFromTag(result.getTa());
+                //double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
+                double distance = getDistanceFromTag(result.getTa());
 
-                // Sanity gate
                 if (Double.isNaN(distance) || Double.isInfinite(distance) || distance <= 0 || distance > 200) {
                     hasTarget = false;
                 } else {
-                    // Camera->robot center correction
                     double lateral_camera = distance * Math.tan(Math.toRadians(tx)); // inches
                     double lateral_robotCenter = lateral_camera - LIMELIGHT_OFFSET;  // inches
                     res_plus = Math.toDegrees(Math.atan(lateral_robotCenter / distance)); // deg
 
-                    // --- Velocity compensation (simple, working) ---
-                    // If you are strafing, the robot will keep sliding while the note is traveling.
-                    // We add a small lead angle proportional to strafe velocity.
                     double strafeCompDeg = clamp(filteredStrafeVel * STRAFE_COMP_K,
                             -STRAFE_COMP_MAX_DEG, STRAFE_COMP_MAX_DEG);
 
-                    // IMPORTANT: sign may need flipping depending on your drivetrain/motor directions.
-                    // If the lead makes it worse, just negate STRAFE_COMP_K in dashboard.
                     res_plus += strafeCompDeg;
-                    // ----------------------------------------------
 
                     // Filter Limelight aiming jitter
                     filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
 
-                    // Flywheel logic (unchanged)
+                    // Flywheel logic
                     OUTTAKE_SPEED = (getDistanceFromTag(result.getTa()) > 30000) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
                 }
             } else {
@@ -241,8 +233,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             telemetry.addData("Target", hasTarget);
             if (result != null) {
                 telemetry.addData("Target Area", result.getTa());
+                telemetry.addData("tx", result.getTx());
+
             }
-            telemetry.addData("Distance", getDistanceFromTag(result.getTa()));
 
 
             telemetry.update();

@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
-@Autonomous(name="PP Auto Red Far Updated", group="Autonomous")
+@Autonomous(name="PP Auto Red Far Exper", group="Autonomous")
 public class PPAutoRedFarExper extends OpMode {
 
     private Follower follower;
@@ -24,6 +24,10 @@ public class PPAutoRedFarExper extends OpMode {
 
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
+
+    // --- CONFIGURABLE PARAMETERS ---
+    public static boolean IS_RED = true; // Toggle this for Red side
+    public static double FIELD_SIZE = 144.0;
 
     public static double OUTTAKE_SPEED = 620;
     public static double DRAWBACK_POWER = 0.6;
@@ -75,9 +79,7 @@ public class PPAutoRedFarExper extends OpMode {
                 break;
 
             case SHOOT_1:
-                if (performShootSequence(PathState.PATH_2)) {
-                    follower.followPath(paths.Path2);
-                }
+                if (performShootSequence(PathState.PATH_2)) follower.followPath(paths.Path2);
                 break;
 
             case PATH_2:
@@ -99,15 +101,13 @@ public class PPAutoRedFarExper extends OpMode {
                 break;
 
             case SHOOT_2:
-                if (performShootSequence(PathState.PATH_5)) {
-                    follower.followPath(paths.Path5);
-                }
+                if (performShootSequence(PathState.PATH_5)) follower.followPath(paths.Path5);
                 break;
 
             case PATH_5:
                 if (!follower.isBusy()) {
                     setPathState(PathState.PATH_6);
-                    follower.followPath(paths.Path6, 0.5, true);
+                    follower.followPath(paths.Path6, 0.4, true);
                 }
                 break;
 
@@ -123,9 +123,7 @@ public class PPAutoRedFarExper extends OpMode {
                 break;
 
             case SHOOT_3:
-                if (performShootSequence(PathState.PATH_8)) {
-                    follower.followPath(paths.Path8);
-                }
+                if (performShootSequence(PathState.PATH_8)) follower.followPath(paths.Path8);
                 break;
 
             case PATH_8:
@@ -142,10 +140,11 @@ public class PPAutoRedFarExper extends OpMode {
         robot.setTransferPower(pathState.name().contains("SHOOT") ? SHOOT_POWER : DRAWBACK_POWER);
 
         telemetry.addData("State", pathState);
-        telemetry.addData("Timer", pathTimer.getElapsedTimeSeconds());
+        telemetry.addData("Side", IS_RED ? "RED" : "BLUE");
         telemetry.update();
     }
 
+    // --- UTILITY METHODS ---
     private boolean checkArrivalAndPause(double pauseDuration) {
         if (!follower.isBusy() && !hasArrived) {
             hasArrived = true;
@@ -169,69 +168,83 @@ public class PPAutoRedFarExper extends OpMode {
         hasArrived = false;
     }
 
-    public static class Paths {
+    private Pose mirrorPose(Pose p) {
+        if (!IS_RED) return p;
+        double x = p.getX(), y = p.getY(), h = p.getHeading();
+        double center = FIELD_SIZE / 2.0;
+        // Mirrors X across the center line and flips heading
+        return new Pose(2.0 * center - x, y, angleWrapRad(Math.PI - h));
+    }
+
+    private double angleWrapRad(double r) {
+        while (r <= -Math.PI) r += 2.0 * Math.PI;
+        while (r > Math.PI) r -= 2.0 * Math.PI;
+        return r;
+    }
+
+    // --- PATH GENERATION ---
+    public class Paths {
         public PathChain Path1, Path2, Path3, Path4, Path5, Path6, Path7, Path8;
         public Pose mStartPose;
-        public Pose mShootingPose;
 
         public Paths(Follower follower) {
-            // CENTRALIZED COORDINATES
-            mStartPose = new Pose(56.000, 8.000, Math.toRadians(90));
-            mShootingPose = new Pose(55.391, 17.721, Math.toRadians(110));
+            // Define Blue Coordinates
+            Pose pStart = new Pose(56.000, 8.000, Math.toRadians(90));
+            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(111));
+            Pose pIntakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
+            Pose pIntakeDeep = new Pose(9.114, 35.254, Math.toRadians(0));
+            Pose pFarArea = new Pose(7.807, 29.000, Math.toRadians(90));
+            Pose pFarDeep = new Pose(8.089, 9.134, Math.toRadians(90));
+            Pose pPark = new Pose(55.667, 36.695, Math.toRadians(90));
 
-            // Intermediate Waypoints
-            Pose intakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
-            Pose intakeDeep = new Pose(9.114, 35.254, Math.toRadians(0));
-            Pose farArea = new Pose(7.807, 29.000, Math.toRadians(90));
-            Pose farDeep = new Pose(8.089, 9.134, Math.toRadians(90));
-            Pose parkPose = new Pose(55.667, 36.695, Math.toRadians(90));
+            // Apply Mirroring
+            mStartPose = mirrorPose(pStart);
+            Pose mShoot = mirrorPose(pShoot);
+            Pose mIntakeArea = mirrorPose(pIntakeArea);
+            Pose mIntakeDeep = mirrorPose(pIntakeDeep);
+            Pose mFarArea = mirrorPose(pFarArea);
+            Pose mFarDeep = mirrorPose(pFarDeep);
+            Pose mPark = mirrorPose(pPark);
 
-            // Start to Shooting
+            // Build Paths using Mirrored Poses
             Path1 = follower.pathBuilder()
-                    .addPath(new BezierLine(mStartPose, mShootingPose))
-                    .setLinearHeadingInterpolation(mStartPose.getHeading(), mShootingPose.getHeading())
+                    .addPath(new BezierLine(mStartPose, mShoot))
+                    .setLinearHeadingInterpolation(mStartPose.getHeading(), mShoot.getHeading())
                     .build();
 
-            // Shooting to Intake Area
             Path2 = follower.pathBuilder()
-                    .addPath(new BezierLine(mShootingPose, intakeArea))
-                    .setLinearHeadingInterpolation(mShootingPose.getHeading(), intakeArea.getHeading())
+                    .addPath(new BezierLine(mShoot, mIntakeArea))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mIntakeArea.getHeading())
                     .build();
 
-            // Deep Intake (Reversed)
             Path3 = follower.pathBuilder()
-                    .addPath(new BezierLine(intakeArea, intakeDeep))
-                    .setLinearHeadingInterpolation(intakeArea.getHeading(), intakeDeep.getHeading())
+                    .addPath(new BezierLine(mIntakeArea, mIntakeDeep))
+                    .setLinearHeadingInterpolation(mIntakeArea.getHeading(), mIntakeDeep.getHeading())
                     .build();
 
-            // Deep Intake back to Shooting
             Path4 = follower.pathBuilder()
-                    .addPath(new BezierLine(intakeDeep, mShootingPose))
-                    .setLinearHeadingInterpolation(intakeDeep.getHeading(), mShootingPose.getHeading())
+                    .addPath(new BezierLine(mIntakeDeep, mShoot))
+                    .setLinearHeadingInterpolation(mIntakeDeep.getHeading(), mShoot.getHeading())
                     .build();
 
-            // Shooting to Far Area
             Path5 = follower.pathBuilder()
-                    .addPath(new BezierLine(mShootingPose, farArea))
-                    .setLinearHeadingInterpolation(mShootingPose.getHeading(), farArea.getHeading())
+                    .addPath(new BezierLine(mShoot, mFarArea))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mFarArea.getHeading())
                     .build();
 
-            // Far Area to Far Deep
             Path6 = follower.pathBuilder()
-                    .addPath(new BezierLine(farArea, farDeep))
-                    .setLinearHeadingInterpolation(farArea.getHeading(), farDeep.getHeading())
+                    .addPath(new BezierLine(mFarArea, mFarDeep))
+                    .setLinearHeadingInterpolation(mFarArea.getHeading(), mFarDeep.getHeading())
                     .build();
 
-            // Far Deep back to Shooting
             Path7 = follower.pathBuilder()
-                    .addPath(new BezierLine(farDeep, mShootingPose))
-                    .setLinearHeadingInterpolation(farDeep.getHeading(), mShootingPose.getHeading())
+                    .addPath(new BezierLine(mFarDeep, mShoot))
+                    .setLinearHeadingInterpolation(mFarDeep.getHeading(), mShoot.getHeading())
                     .build();
 
-            // Final Shooting to Park
             Path8 = follower.pathBuilder()
-                    .addPath(new BezierLine(mShootingPose, parkPose))
-                    .setLinearHeadingInterpolation(mShootingPose.getHeading(), parkPose.getHeading())
+                    .addPath(new BezierLine(mShoot, mPark))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mPark.getHeading())
                     .build();
         }
     }
@@ -239,6 +252,6 @@ public class PPAutoRedFarExper extends OpMode {
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
-        PoseStorage.isBlue = true;
+        PoseStorage.isBlue = !IS_RED;
     }
 }

@@ -14,7 +14,7 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
-@Autonomous(name="PP Auto Blue Close EXPER FULL 12", group="Autonomous")
+@Autonomous(name="PP Auto Red Close EXPER 12", group="Autonomous")
 public class PPAutoRedCloseExper12 extends OpMode {
 
     private Follower follower;
@@ -225,7 +225,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
 
         public Paths(Follower follower) {
             Pose pStart = new Pose(33.456, 134.533, Math.toRadians(90));
-            Pose pShoot = new Pose(55.656, 90.932, Math.toRadians(130));
+            Pose pShoot = new Pose(55.656, 90.932, Math.toRadians(135));
             Pose pI1Ent = new Pose(50.000, 86.760, Math.toRadians(0));
             Pose pI1Dp  = new Pose(13.574, 86.760, Math.toRadians(0));
 
@@ -238,7 +238,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
 
             // Intake 3 (Following the pattern, shifted further down the Y axis)
             Pose pI3Ent = new Pose(50.000, 36.834, Math.toRadians(0));
-            Pose pI3Dp  = new Pose(9.784, 36.834, Math.toRadians(0));
+            Pose pI3Dp  = new Pose(5.784, 36.834, Math.toRadians(0));
 
             Pose pPark  = new Pose(23.661, 65.977, Math.toRadians(0));
 
