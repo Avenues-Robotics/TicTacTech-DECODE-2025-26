@@ -29,7 +29,7 @@ public class PPAutoBlueCloseExper12 extends OpMode {
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1;
-    public static double PAUSE_BEFORE_INTAKE = 0.5;
+    public static double PAUSE_BEFORE_INTAKE = 0;
     public static double SHOOT_TIME = 1.9;
 
     public static boolean IS_RED = false;
