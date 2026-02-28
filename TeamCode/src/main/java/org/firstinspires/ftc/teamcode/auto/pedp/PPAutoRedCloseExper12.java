@@ -29,7 +29,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1;
-    public static double PAUSE_BEFORE_INTAKE = 0.5;
+    public static double PAUSE_BEFORE_INTAKE = 0;
     public static double SHOOT_TIME = 1.9;
 
     public static boolean IS_RED = true;
@@ -230,7 +230,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
             Pose pI1Dp  = new Pose(13.574, 86.760, Math.toRadians(0));
 
             Pose pGateEnter = new Pose(25.574, 79.760, Math.toRadians(0));
-            Pose pGatePress = new Pose(16.000, 79.977, Math.toRadians(0));
+            Pose pGatePress = new Pose(17.000, 79.977, Math.toRadians(0));
 
             // Intake 2
             Pose pI2Ent = new Pose(50.000, 61.797, Math.toRadians(0));

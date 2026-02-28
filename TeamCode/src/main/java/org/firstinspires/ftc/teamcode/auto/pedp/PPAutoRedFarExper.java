@@ -190,7 +190,7 @@ public class PPAutoRedFarExper extends OpMode {
         public Paths(Follower follower) {
             // Define Blue Coordinates
             Pose pStart = new Pose(56.000, 8.000, Math.toRadians(90));
-            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(111));
+            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(115));
             Pose pIntakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
             Pose pIntakeDeep = new Pose(9.114, 35.254, Math.toRadians(0));
             Pose pFarArea = new Pose(7.807, 29.000, Math.toRadians(90));

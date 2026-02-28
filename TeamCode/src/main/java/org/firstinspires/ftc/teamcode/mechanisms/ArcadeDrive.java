@@ -1,12 +1,16 @@
 package org.firstinspires.ftc.teamcode.mechanisms;
 
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 
 public class ArcadeDrive {
     private DcMotorEx fl, fr, bl, br;
+
+    //private CRServo cL, cR;
     private DcMotorEx intake, transfer;
 
     public void init(HardwareMap hwMap, boolean auto) {
@@ -16,6 +20,8 @@ public class ArcadeDrive {
         br = hwMap.get(DcMotorEx.class, "bR");
         intake = hwMap.get(DcMotorEx.class, "intake");
         transfer = hwMap.get(DcMotorEx.class, "transfer");
+        //cR = hwMap.get(CRServo.class, "rightCheese");
+        //cL = hwMap.get(CRServo.class, "leftCheese");
 
         fr.setDirection(DcMotorSimple.Direction.REVERSE);
         br.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -61,6 +67,7 @@ public class ArcadeDrive {
     }
 
 
+
     public void drive(double y, double x, double r, double scale) {
         double flPow = y + x + r;
         double frPow = y - x - r;
@@ -85,6 +92,11 @@ public class ArcadeDrive {
         bl.setPower(blPow / max);
         br.setPower(brPow / max);
     }
+
+    //public void startBrodskyBelt(){
+    //    cR.setPower(-1.0);
+    //    cL.setPower(1.0);
+    //}
 
     public void setMotorPower(int motor, double speed) {
         if (motor == 0){
