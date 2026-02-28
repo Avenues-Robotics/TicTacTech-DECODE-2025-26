@@ -39,13 +39,13 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     // --- Simple velocity compensation ---
     // Strafe compensation gain: degrees of extra turn per (ticks/sec) of strafe-velocity estimate.
     // Start VERY small, e.g. 0.00002 and tune on the field.
-    public static double STRAFE_COMP_K = 0.0025;
+    public static double STRAFE_COMP_K = 0.002;
 
     // Smooth the measured strafe velocity (0..1). Higher = smoother.
     public static double STRAFE_VEL_FILTER_GAIN = 0.7;
 
-    public static double FARFLYWHEELSPEED = 640;
-    public static double CLOSEFLYWHEELSPEED = 580;
+    public static double FARFLYWHEELSPEED = 620;
+    public static double CLOSEFLYWHEELSPEED = 570;
 
     // Clamp compensation so it can't go insane
     public static double STRAFE_COMP_MAX_DEG = 90;

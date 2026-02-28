@@ -226,6 +226,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
         public Paths(Follower follower) {
             Pose pStart = new Pose(33.456, 134.533, Math.toRadians(90));
             Pose pShoot = new Pose(55.656, 90.932, Math.toRadians(135));
+            Pose pShootAlt = new Pose(55.656, 115, Math.toRadians(154));
             Pose pI1Ent = new Pose(50.000, 86.760, Math.toRadians(0));
             Pose pI1Dp  = new Pose(13.574, 86.760, Math.toRadians(0));
 
@@ -253,6 +254,7 @@ public class PPAutoRedCloseExper12 extends OpMode {
             Pose mI3Ent = mirrorPose(pI3Ent);
             Pose mI3Dp  = mirrorPose(pI3Dp);
             Pose mPark  = mirrorPose(pPark);
+            Pose mShootAlt = mirrorPose(pShootAlt);
 
             Path1 = new com.pedropathing.paths.Path(new BezierLine(mStartPose, mShoot));
             Path1.setLinearHeadingInterpolation(mStartPose.getHeading(), mShoot.getHeading());
@@ -290,12 +292,8 @@ public class PPAutoRedCloseExper12 extends OpMode {
             Path10.setConstantHeadingInterpolation(mI3Dp.getHeading());
 
             // Path 11: Return to Shoot
-            Path11 = new com.pedropathing.paths.Path(new BezierLine(mI3Dp, mShoot));
-            Path11.setLinearHeadingInterpolation(mI3Dp.getHeading(), mShoot.getHeading());
-
-            // Path 8: Shoot 4 to Park
-            Path8 = new com.pedropathing.paths.Path(new BezierLine(mShoot, mPark));
-            Path8.setLinearHeadingInterpolation(mShoot.getHeading(), mPark.getHeading());
+            Path11 = new com.pedropathing.paths.Path(new BezierLine(mI3Dp, mShootAlt));
+            Path11.setLinearHeadingInterpolation(mI3Dp.getHeading(), mShootAlt.getHeading());
         }
     }
 
