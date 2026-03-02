@@ -21,7 +21,7 @@ public class Constants {
             .lateralZeroPowerAcceleration(-54.94265508423035)
             .translationalPIDFCoefficients(new PIDFCoefficients(0.077, 0, 0.01, 0.026))
             .headingPIDFCoefficients(new PIDFCoefficients(0.7,0,0.002,0.026))
-            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.025,0,0.00001,0.6,0.026))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.025,0,0.00001,0.6,0.026)) // try slightly increasing D and see if it helps with path overshoot
             .centripetalScaling(0.005)
             ;
     public static MecanumConstants driveConstants = new MecanumConstants()

@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
+import org.firstinspires.ftc.teamcode.mechanisms.IntakeBallDetector;
 
 @Config
 @TeleOp(name = "DriveTeleOp2ControllersLimelight", group = "Main")
@@ -34,7 +35,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double F = 0.0008;
 
     // Low Pass Filter Gain
-    public static double GAIN = 0.8;
+    public static double GAIN = 0.4;
 
     // --- Simple velocity compensation ---
     // Strafe compensation gain: degrees of extra turn per (ticks/sec) of strafe-velocity estimate.
@@ -54,6 +55,9 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
     private ArcadeDrive robot = new ArcadeDrive();
+    private IntakeBallDetector ballDetector = new IntakeBallDetector();
+
+
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
@@ -101,6 +105,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
         robot.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
+        ballDetector.init(robot.getIntake());
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
@@ -227,7 +232,11 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             intakeCommand = (gamepad2.left_trigger > 0.1) ? -INTAKE_SPEED : INTAKE_SPEED;
             robot.setIntakePower(intakeCommand);
 
-            if (gamepad2.right_trigger >= 0.1) robot.setTransferPower(-1.0);
+            if (gamepad2.right_trigger >= 0.1) {
+                robot.setTransferPower(-1.0);
+                ballDetector.resetCount();
+            }
+
             else if (gamepad2.right_bumper) robot.setTransferPower(1.0);
             else robot.setTransferPower(DRAWBACK_POWER);
 
@@ -238,11 +247,20 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
             double batteryV = batterySensor.getVoltage();
             double intakeEstimatedV = batteryV * Math.abs(intakeCommand);
 
+            ballDetector.update(intakeEstimatedV);
+
             telemetry.addData("Target", hasTarget);
             if (result != null) {
                 telemetry.addData("distance", getDistanceFromTag(result.getTa()));
                 telemetry.addData("tx", result.getTx());
             }
+
+            //if (ballDetector.getBallCount() >= 3) {
+            //    gamepad2.rumble(500); // Alert driver that intake is full
+            //}
+
+            telemetry.addData("Estimated Intake V", intakeEstimatedV);
+            telemetry.addData("Ball Count", ballDetector.getBallCount());
 
 
             telemetry.update();
