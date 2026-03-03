@@ -16,8 +16,8 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
-@Autonomous(name="PP Auto Blue Close DECODE Full", group="Autonomous")
-public class PPAutoBlueCloseFast12 extends OpMode {
+@Autonomous(name="PP Auto Blue Close Gate Intake", group="Autonomous")
+public class PPAutoBlueGateIntakeTest extends OpMode {
 
     private Follower follower;
     private Timer pathTimer;
@@ -203,7 +203,6 @@ public class PPAutoBlueCloseFast12 extends OpMode {
         public Pose mStartPose;
 
         public Paths(Follower follower) {
-            // Coordinate definitions for DECODE Field
             Pose pStart = new Pose(33.252, 134.939, Math.toRadians(90));
             Pose pShoot1 = new Pose(55.656, 90.932, Math.toRadians(135));
             Pose pIntake1Mid = new Pose(37.870, 86.333);
