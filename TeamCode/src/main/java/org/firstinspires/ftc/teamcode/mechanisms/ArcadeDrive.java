@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class ArcadeDrive {
     private DcMotorEx fl, fr, bl, br;
 
-    //private CRServo cL, cR;
+    private CRServo cL, cR;
     private DcMotorEx intake, transfer;
 
     public void init(HardwareMap hwMap, boolean auto) {
@@ -20,8 +20,8 @@ public class ArcadeDrive {
         br = hwMap.get(DcMotorEx.class, "bR");
         intake = hwMap.get(DcMotorEx.class, "intake");
         transfer = hwMap.get(DcMotorEx.class, "transfer");
-        //cR = hwMap.get(CRServo.class, "rightCheese");
-        //cL = hwMap.get(CRServo.class, "leftCheese");
+        cR = hwMap.get(CRServo.class, "rightCheese");
+        cL = hwMap.get(CRServo.class, "leftCheese");
 
         fr.setDirection(DcMotorSimple.Direction.REVERSE);
         br.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -93,10 +93,17 @@ public class ArcadeDrive {
         br.setPower(brPow / max);
     }
 
-    //public void startBrodskyBelt(){
-    //    cR.setPower(-1.0);
-    //    cL.setPower(1.0);
-    //}
+    public void startBrodskyBelt(boolean on){
+        if (on){
+            cR.setPower(-1.0);
+            cL.setPower(1.0);
+        }
+        else{
+            cR.setPower(0);
+            cL.setPower(0);
+        }
+
+    }
 
     public void setMotorPower(int motor, double speed) {
         if (motor == 0){

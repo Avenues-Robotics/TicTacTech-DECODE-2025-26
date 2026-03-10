@@ -19,7 +19,6 @@ import org.firstinspires.ftc.teamcode.drivers.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 @Config
-@Disabled
 @TeleOp(name = "FieldOriented_FULL_FEATURES", group = "Main")
 public class DriveTeleOp2ControllersLimelightFieldOriented extends LinearOpMode {
 

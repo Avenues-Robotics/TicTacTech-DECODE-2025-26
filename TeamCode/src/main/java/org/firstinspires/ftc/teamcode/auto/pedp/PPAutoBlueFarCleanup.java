@@ -41,8 +41,8 @@ public class PPAutoBlueFarCleanup extends OpMode {
         PATH_1, SHOOT_1,
         PATH_2, PATH_3, PATH_4, SHOOT_2,
         PATH_5, PATH_6, PATH_7, SHOOT_3,
-        PATH_8, PATH_9, SHOOT_4,  // Added Cleanup and final shoot
-        PATH_10, DONE             // Park
+        PATH_8, PATH_9, SHOOT_4,
+        PATH_10, DONE
     }
 
     private PathState pathState;
@@ -63,6 +63,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
     @Override
     public void start() {
+        robot.startBrodskyBelt(true);
         follower.followPath(paths.Path1);
     }
 

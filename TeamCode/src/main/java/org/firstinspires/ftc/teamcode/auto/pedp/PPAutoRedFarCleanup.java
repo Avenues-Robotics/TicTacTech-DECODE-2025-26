@@ -2,8 +2,10 @@ package org.firstinspires.ftc.teamcode.auto.pedp;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -14,8 +16,8 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
-@Autonomous(name="PP Auto Blue Close EXPER", group="Autonomous")
-public class PPAutoBlueCloseExper extends OpMode {
+@Autonomous(name="PP Auto Red Far Cleanup", group="Autonomous")
+public class PPAutoRedFarCleanup extends OpMode {
 
     private Follower follower;
     private Timer pathTimer;
@@ -24,24 +26,23 @@ public class PPAutoBlueCloseExper extends OpMode {
     private final ArcadeDrive robot = new ArcadeDrive();
     private final DualOuttakeEx outtake = new DualOuttakeEx();
 
-    public static double OUTTAKE_SPEED = 560;
+    public static boolean IS_RED = true;
+    public static double FIELD_SIZE = 144.0;
+
+    public static double OUTTAKE_SPEED = 620;
     public static double DRAWBACK_POWER = 0.6;
     public static double SHOOT_POWER = -1.0;
 
-    public static double PAUSE_BEFORE_SHOOT = 1;
+    public static double PAUSE_BEFORE_SHOOT = 1.5;
     public static double PAUSE_BEFORE_INTAKE = 0.5;
     public static double SHOOT_TIME = 1.9;
 
-    public static boolean IS_RED = false;
-    public static double FIELD_SIZE = 144.0;
-
     public enum PathState {
         PATH_1, SHOOT_1,
-        PATH_2, PATH_3,
-        PATH_GATE_ENTER, PATH_GATE_PRESS, // Split states
-        PATH_4, SHOOT_2,
+        PATH_2, PATH_3, PATH_4, SHOOT_2,
         PATH_5, PATH_6, PATH_7, SHOOT_3,
-        PATH_8, DONE
+        PATH_8, PATH_9, SHOOT_4,
+        PATH_10, DONE
     }
 
     private PathState pathState;
@@ -62,6 +63,7 @@ public class PPAutoBlueCloseExper extends OpMode {
 
     @Override
     public void start() {
+        robot.startBrodskyBelt(true);
         follower.followPath(paths.Path1);
     }
 
@@ -79,9 +81,7 @@ public class PPAutoBlueCloseExper extends OpMode {
                 break;
 
             case SHOOT_1:
-                if (performShootSequence(PathState.PATH_2)) {
-                    follower.followPath(paths.Path2);
-                }
+                if (performShootSequence(PathState.PATH_2)) follower.followPath(paths.Path2);
                 break;
 
             case PATH_2:
@@ -93,20 +93,6 @@ public class PPAutoBlueCloseExper extends OpMode {
 
             case PATH_3:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.PATH_GATE_ENTER);
-                    follower.followPath(paths.PathGateEnter);
-                }
-                break;
-
-            case PATH_GATE_ENTER:
-                if (!follower.isBusy()) {
-                    setPathState(PathState.PATH_GATE_PRESS);
-                    follower.followPath(paths.PathGatePress);
-                }
-                break;
-
-            case PATH_GATE_PRESS:
-                if (!follower.isBusy()) {
                     setPathState(PathState.PATH_4);
                     follower.followPath(paths.Path4);
                 }
@@ -117,9 +103,7 @@ public class PPAutoBlueCloseExper extends OpMode {
                 break;
 
             case SHOOT_2:
-                if (performShootSequence(PathState.PATH_5)) {
-                    follower.followPath(paths.Path5);
-                }
+                if (performShootSequence(PathState.PATH_5)) follower.followPath(paths.Path5);
                 break;
 
             case PATH_5:
@@ -141,12 +125,25 @@ public class PPAutoBlueCloseExper extends OpMode {
                 break;
 
             case SHOOT_3:
-                if (performShootSequence(PathState.PATH_8)) {
-                    follower.followPath(paths.Path8);
-                }
+                if (performShootSequence(PathState.PATH_8)) follower.followPath(paths.Path8);
                 break;
 
             case PATH_8:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.PATH_9);
+                    follower.followPath(paths.Path9);
+                }
+                break;
+
+            case PATH_9:
+                if (checkArrivalAndPause(PAUSE_BEFORE_SHOOT)) setPathState(PathState.SHOOT_4);
+                break;
+
+            case SHOOT_4:
+                if (performShootSequence(PathState.PATH_10)) follower.followPath(paths.Path10);
+                break;
+
+            case PATH_10:
                 if (!follower.isBusy()) setPathState(PathState.DONE);
                 break;
 
@@ -188,9 +185,7 @@ public class PPAutoBlueCloseExper extends OpMode {
 
     private Pose mirrorPose(Pose p) {
         if (!IS_RED) return p;
-        double x = p.getX(), y = p.getY(), h = p.getHeading();
-        double center = FIELD_SIZE / 2.0;
-        return new Pose(2.0 * center - x, y, angleWrapRad(Math.PI - h));
+        return new Pose(2.0 * (FIELD_SIZE / 2.0) - p.getX(), p.getY(), angleWrapRad(Math.PI - p.getHeading()));
     }
 
     private double angleWrapRad(double r) {
@@ -198,76 +193,77 @@ public class PPAutoBlueCloseExper extends OpMode {
         while (r > Math.PI) r -= 2.0 * Math.PI;
         return r;
     }
-
+    // --- PATH GENERATION ---
     public class Paths {
-        public com.pedropathing.paths.Path Path1, Path2, Path3, PathGateEnter, PathGatePress, Path4, Path5, Path6, Path7, Path8;
+        public PathChain Path1, Path2, Path3, Path4, Path5, Path6, Path7, Path8, Path9, Path10;
         public Pose mStartPose;
 
         public Paths(Follower follower) {
-            // Raw Field Coordinates (Inches)
-            Pose pStart = new Pose(33.456, 134.533, Math.toRadians(90));
-            Pose pShoot = new Pose(55.656, 90.932, Math.toRadians(135));
-            Pose pI1Ent = new Pose(50.000, 86.760, Math.toRadians(0));
-            Pose pI1Dp  = new Pose(13.574, 86.760, Math.toRadians(0));
+            // 1. Define Raw Blue Side Coordinates
+            Pose pStart = new Pose(56.000, 8.000, Math.toRadians(90));
+            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(115));
+            Pose pIntakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
+            Pose pIntakeDeep = new Pose(9.114, 35.254, Math.toRadians(0));
+            Pose pFarArea = new Pose(7.807, 29.000, Math.toRadians(90));
+            Pose pFarDeep = new Pose(8.089, 9.134, Math.toRadians(90));
+            Pose pCleanupEnd = new Pose(10.193, 8.945, Math.toRadians(0));
+            Pose pPark = new Pose(55.667, 36.695, Math.toRadians(90));
 
-            // GATE SEQUENCE POSES
-            Pose pGateEnter = new Pose(25.574, 79.760, Math.toRadians(0)); // Alignment position
-            Pose pGatePress = new Pose(16.000, 79.977, Math.toRadians(0)); // Press/Through position
-
-            Pose pI2Ent = new Pose(50.000, 61.797, Math.toRadians(0));
-            Pose pI2Dp  = new Pose(9.784, 61.797, Math.toRadians(0));
-            Pose pPark  = new Pose(23.661, 65.977, Math.toRadians(0));
-
-            // Mirror logic for Alliance compatibility
+            // 2. Pre-Mirror everything to Red Side
             mStartPose = mirrorPose(pStart);
             Pose mShoot = mirrorPose(pShoot);
-            Pose mI1Ent = mirrorPose(pI1Ent);
-            Pose mI1Dp  = mirrorPose(pI1Dp);
-            Pose mGateEnter = mirrorPose(pGateEnter);
-            Pose mGatePress = mirrorPose(pGatePress);
-            Pose mI2Ent = mirrorPose(pI2Ent);
-            Pose mI2Dp  = mirrorPose(pI2Dp);
-            Pose mPark  = mirrorPose(pPark);
+            Pose mIntakeArea = mirrorPose(pIntakeArea);
+            Pose mIntakeDeep = mirrorPose(pIntakeDeep);
+            Pose mFarArea = mirrorPose(pFarArea);
+            Pose mFarDeep = mirrorPose(pFarDeep);
+            Pose mCleanupEnd = mirrorPose(pCleanupEnd);
+            Pose mPark = mirrorPose(pPark);
 
-            // Path Definitions
-            Path1 = new com.pedropathing.paths.Path(new BezierLine(mStartPose, mShoot));
-            Path1.setLinearHeadingInterpolation(mStartPose.getHeading(), mShoot.getHeading());
+            // 3. Build Paths using Red Poses and Red Headings
+            Path1 = follower.pathBuilder()
+                    .addPath(new BezierLine(mStartPose, mShoot))
+                    .setLinearHeadingInterpolation(mStartPose.getHeading(), mShoot.getHeading()).build();
 
-            Path2 = new com.pedropathing.paths.Path(new BezierLine(mShoot, mI1Ent));
-            Path2.setLinearHeadingInterpolation(mShoot.getHeading(), mI1Ent.getHeading());
+            Path2 = follower.pathBuilder()
+                    .addPath(new BezierLine(mShoot, mIntakeArea))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mIntakeArea.getHeading()).build();
 
-            Path3 = new com.pedropathing.paths.Path(new BezierLine(mI1Ent, mI1Dp));
-            Path3.setConstantHeadingInterpolation(mI1Dp.getHeading());
+            Path3 = follower.pathBuilder()
+                    .addPath(new BezierLine(mIntakeArea, mIntakeDeep))
+                    .setConstantHeadingInterpolation(mIntakeDeep.getHeading()).build();
 
-            // Go to the entry point of the Gate
-            PathGateEnter = new com.pedropathing.paths.Path(new BezierLine(mI1Dp, mGateEnter));
-            PathGateEnter.setLinearHeadingInterpolation(mI1Dp.getHeading(), mGateEnter.getHeading());
+            Path4 = follower.pathBuilder()
+                    .addPath(new BezierLine(mIntakeDeep, mShoot))
+                    .setLinearHeadingInterpolation(mIntakeDeep.getHeading(), mShoot.getHeading()).build();
 
-            // Press through the Gate
-            PathGatePress = new com.pedropathing.paths.Path(new BezierLine(mGateEnter, mGatePress));
-            PathGatePress.setConstantHeadingInterpolation(mGatePress.getHeading());
+            Path5 = follower.pathBuilder()
+                    .addPath(new BezierLine(mShoot, mFarArea))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mFarArea.getHeading()).build();
 
-            // Return to shooting position
-            Path4 = new com.pedropathing.paths.Path(new BezierLine(mGatePress, mShoot));
-            Path4.setLinearHeadingInterpolation(mGatePress.getHeading(), mShoot.getHeading());
+            Path6 = follower.pathBuilder()
+                    .addPath(new BezierLine(mFarArea, mFarDeep))
+                    .setConstantHeadingInterpolation(mFarDeep.getHeading()).build();
 
-            Path5 = new com.pedropathing.paths.Path(new BezierLine(mShoot, mI2Ent));
-            Path5.setLinearHeadingInterpolation(mShoot.getHeading(), mI2Ent.getHeading());
+            Path7 = follower.pathBuilder()
+                    .addPath(new BezierLine(mFarDeep, mShoot))
+                    .setLinearHeadingInterpolation(mFarDeep.getHeading(), mShoot.getHeading()).build();
 
-            Path6 = new com.pedropathing.paths.Path(new BezierLine(mI2Ent, mI2Dp));
-            Path6.setConstantHeadingInterpolation(mI2Dp.getHeading());
+            Path8 = follower.pathBuilder()
+                    .addPath(new BezierCurve(mirrorPose(pShoot), mirrorPose(new Pose(48.433, 9.216)), mirrorPose(pCleanupEnd)))
+                    .setTangentHeadingInterpolation().setReversed().build();
+            Path9 = follower.pathBuilder()
+                    .addPath(new BezierLine(mCleanupEnd, mShoot))
+                    .setLinearHeadingInterpolation(mCleanupEnd.getHeading(), mShoot.getHeading()).build();
 
-            Path7 = new com.pedropathing.paths.Path(new BezierLine(mI2Dp, mShoot));
-            Path7.setLinearHeadingInterpolation(mI2Dp.getHeading(), mShoot.getHeading());
-
-            Path8 = new com.pedropathing.paths.Path(new BezierLine(mShoot, mPark));
-            Path8.setLinearHeadingInterpolation(mShoot.getHeading(), mPark.getHeading());
+            Path10 = follower.pathBuilder()
+                    .addPath(new BezierLine(mShoot, mPark))
+                    .setLinearHeadingInterpolation(mShoot.getHeading(), mPark.getHeading()).build();
         }
     }
 
     @Override
     public void stop() {
         PoseStorage.currentPose = follower.getPose();
-        PoseStorage.isBlue = false;
+        PoseStorage.isBlue = !IS_RED;
     }
 }

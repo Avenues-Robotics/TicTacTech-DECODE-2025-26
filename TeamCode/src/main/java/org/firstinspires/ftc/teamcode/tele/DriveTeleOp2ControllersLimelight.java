@@ -25,42 +25,34 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     public static double OUTTAKE_SPEED = 610;
     public static double DRAWBACK_POWER = 0.3;
 
-    // POI enabled: tx/ty already point at the backboard aim point.
-    // Camera LEFT => negative (inches)
-    public static double LIMELIGHT_OFFSET = 6;
+    public static double LIMELIGHT_OFFSET = 3;
 
-    // PIDF Constants
+    // --- PIDF Constants ---
     public static double P = 0.025;
-    public static double D = 0.0;
+    public static double D = 0.001; // Start small now that it's filtered
     public static double F = 0.0008;
 
-    // Low Pass Filter Gain
-    public static double GAIN = 0.4;
+    // --- Derivative Filtering ---
+    // 0 = no filter (harsh), 0.9 = heavy filter (smooth but slow). Try 0.5 - 0.7.
+    public static double D_FILTER_GAIN = 0.6;
 
     // --- Simple velocity compensation ---
-    // Strafe compensation gain: degrees of extra turn per (ticks/sec) of strafe-velocity estimate.
-    // Start VERY small, e.g. 0.00002 and tune on the field.
     public static double STRAFE_COMP_K = 0.002;
-
-    // Smooth the measured strafe velocity (0..1). Higher = smoother.
     public static double STRAFE_VEL_FILTER_GAIN = 0.7;
-
-    public static double FARFLYWHEELSPEED = 620;
-    public static double CLOSEFLYWHEELSPEED = 570;
-
-    // Clamp compensation so it can't go insane
     public static double STRAFE_COMP_MAX_DEG = 90;
-    // -----------------------------------
+
+    public static double FARFLYWHEELSPEED = 640;
+    public static double CLOSEFLYWHEELSPEED = 570;
 
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
     private ArcadeDrive robot = new ArcadeDrive();
     private IntakeBallDetector ballDetector = new IntakeBallDetector();
 
-
-
     private boolean fastMode = false;
     private boolean triggerHeld = false;
+    private boolean bumperHeld = false;
+    private boolean brodOn = false;
     private boolean isBlueAlliance;
 
     private double tx = 0.0;
@@ -69,16 +61,12 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     private boolean hasTarget = false;
 
     private double res_plus = 0.0;
-    private double filtered_res_plus = 0.0;
-
     private double lastError = 0.0;
+    private double lastFilteredDerivative = 0.0;
     private long lastTime = 0L;
 
-    // For plotting intake voltage (estimated)
     private VoltageSensor batterySensor;
     private double intakeCommand = 0.0;
-
-    // Strafe velocity filtering
     private double filteredStrafeVel = 0.0;
 
     private double expo(double v) { return v * v * v; }
@@ -88,12 +76,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     }
 
     public double getDistanceFromTag(double ta) {
-        // If the target is too small to be reliable, return a default or 0
-        // Limelight TA is usually 0-100. 0.05 is a tiny sliver of the screen.
-        if (ta <= 0.02){
-            return 10000;
-        }
-
+        if (ta <= 0.02) return 10000;
         double a = 68.1;
         double b = -0.513;
         return a * (Math.pow(ta, b));
@@ -114,155 +97,122 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
         batterySensor = hardwareMap.voltageSensor.iterator().next();
 
         isBlueAlliance = PoseStorage.isBlue;
-        if (isBlueAlliance){
-            limelight.pipelineSwitch(1);
-        }
-        else{
-            limelight.pipelineSwitch(0);
-        }
+        limelight.pipelineSwitch(isBlueAlliance ? 1 : 0);
 
         waitForStart();
 
-        //robot.startBrodskyBelt();
-
         while (opModeIsActive()) {
 
-            // Fast Mode Toggle
+            // --- Toggle Fast Mode ---
             if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
                 fastMode = !fastMode;
                 triggerHeld = true;
             }
             if (gamepad1.right_trigger < 0.1) triggerHeld = false;
 
-            // Pipeline Switching
-            if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
-            if (gamepad2.dpad_left)  { isBlueAlliance = true;  limelight.pipelineSwitch(1); }
+            if (gamepad1.right_bumper) {
+                if (!bumperHeld) {
+                    brodOn = !brodOn;
+                    bumperHeld = true;
+                }
+            } else {
+                bumperHeld = false;
+            }
+
+            robot.startBrodskyBelt(brodOn);
+
+            // --- Pipeline Switching ---
+            if (gamepad2.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); LIMELIGHT_OFFSET = 2; }
+            if (gamepad2.dpad_left)  { isBlueAlliance = true;  limelight.pipelineSwitch(1); LIMELIGHT_OFFSET = 3; }
 
             double y = expo(gamepad1.left_stick_y);
             double x = expo(-gamepad1.left_stick_x);
 
-
-
-            // --- Strafe velocity estimate (ticks/sec) ---
-            // Using the common mecanum approximation:
-            // +x strafe tends to increase FL+BR and decrease FR+BL (or vice versa depending on directions)
-            // This matches what you had earlier.
-            double measuredStrafeVel =
-                    (robot.getFl().getVelocity() + robot.getBr().getVelocity()) -
-                            (robot.getFr().getVelocity() + robot.getBl().getVelocity());
-
-            // Low-pass filter to reduce jitter
+            // --- Strafe Velocity Estimation ---
+            double measuredStrafeVel = (robot.getFl().getVelocity() + robot.getBr().getVelocity()) -
+                    (robot.getFr().getVelocity() + robot.getBl().getVelocity());
             filteredStrafeVel = (STRAFE_VEL_FILTER_GAIN * filteredStrafeVel) +
                     ((1.0 - STRAFE_VEL_FILTER_GAIN) * measuredStrafeVel);
-            // ------------------------------------------
 
+            // --- Limelight Vision Processing ---
             LLResult result = limelight.getLatestResult();
+            hasTarget = (result != null && result.isValid());
 
-            hasTarget = false;
-
-            if (result != null && result.isValid()) {
-                // Camera upside down => keep your sign flips
+            if (hasTarget) {
                 tx = -result.getTx();
                 ty = -result.getTy();
                 ta = result.getTa();
 
-                hasTarget = true;
+                double distance = getDistanceFromTag(ta);
+                double lateral_camera = distance * Math.tan(Math.toRadians(tx));
+                double lateral_robotCenter = lateral_camera - LIMELIGHT_OFFSET;
+                res_plus = Math.toDegrees(Math.atan(lateral_robotCenter / distance));
 
-                // Distance model ONLY for camera offset correction
-                //double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
-                double distance = getDistanceFromTag(result.getTa());
-
-                double lateral_camera = distance * Math.tan(Math.toRadians(tx)); // inches
-                double lateral_robotCenter = lateral_camera - LIMELIGHT_OFFSET;  // inches
-                res_plus = Math.toDegrees(Math.atan(lateral_robotCenter / distance)); // deg
-
-                double strafeCompDeg = clamp(filteredStrafeVel * STRAFE_COMP_K,
-                        -STRAFE_COMP_MAX_DEG, STRAFE_COMP_MAX_DEG);
-
+                // Add strafe compensation
+                double strafeCompDeg = clamp(filteredStrafeVel * STRAFE_COMP_K, -STRAFE_COMP_MAX_DEG, STRAFE_COMP_MAX_DEG);
                 res_plus += strafeCompDeg;
 
-                // Filter Limelight aiming jitter
-                filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
-
-                // Flywheel logic
-                OUTTAKE_SPEED = (distance > 103) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
-            } else {
-                // Optional: Zero out the error so the PID doesn't "jump"
-                // when a target is re-acquired
-                res_plus = 0;
-                filtered_res_plus = 0;
+                OUTTAKE_SPEED = 639 + (-1.98 * distance) + 0.015 * (Math.pow(distance, 2));
             }
 
+            // --- Aiming PID ---
             double r;
             if (gamepad1.left_trigger >= 0.1 && hasTarget) {
                 long currentTime = System.nanoTime();
                 double deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
 
-                double error = filtered_res_plus;
-                double derivative = 0.0;
+                double error = res_plus; // NO FILTER on the error itself
+                double rawDerivative = 0.0;
 
                 if (deltaTime > 0 && deltaTime < 0.1) {
-                    derivative = (error - lastError) / deltaTime;
+                    rawDerivative = (error - lastError) / deltaTime;
                 }
 
-                double power = (P * error) + (D * derivative) + (Math.copySign(F, error));
+                // Low-pass filter only the Derivative to stop the "violent" jitter
+                double filteredDerivative = (D_FILTER_GAIN * lastFilteredDerivative) + ((1.0 - D_FILTER_GAIN) * rawDerivative);
+
+                // Final Power Calculation
+                double power = (P * error) + (D * filteredDerivative) + (Math.copySign(F, error));
                 r = -power;
 
                 lastError = error;
+                lastFilteredDerivative = filteredDerivative;
                 lastTime = currentTime;
             } else {
+                // Manual Control
                 r = expo(-gamepad1.right_stick_x);
                 lastError = 0.0;
+                lastFilteredDerivative = 0.0;
                 lastTime = System.nanoTime();
-                filtered_res_plus = 0.0;
             }
 
-            double scale = FAST_MODE_SPEED;
-
-            if (hasTarget){
-                fastMode = true;
-                scale = FAST_MODE_SPEED;
-            }
-            else {
-                scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
-            }
+            // --- Drive Application ---
+            double scale = hasTarget ? FAST_MODE_SPEED : (fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED);
             robot.drive(y, x, r, scale);
 
-            // Intake and Transfer Logic
+            // --- Mechanisms ---
             intakeCommand = (gamepad2.left_trigger > 0.1) ? -INTAKE_SPEED : INTAKE_SPEED;
             robot.setIntakePower(intakeCommand);
 
             if (gamepad2.right_trigger >= 0.1) {
                 robot.setTransferPower(-1.0);
                 ballDetector.resetCount();
+            } else if (gamepad2.right_bumper) {
+                robot.setTransferPower(1.0);
+            } else {
+                robot.setTransferPower(DRAWBACK_POWER);
             }
-
-            else if (gamepad2.right_bumper) robot.setTransferPower(1.0);
-            else robot.setTransferPower(DRAWBACK_POWER);
 
             outtake.setTVelocity(-OUTTAKE_SPEED);
             outtake.update();
 
-            // Dashboard plotting: voltage + estimated intake motor voltage
-            double batteryV = batterySensor.getVoltage();
-            double intakeEstimatedV = batteryV * Math.abs(intakeCommand);
-
-            ballDetector.update(intakeEstimatedV);
-
-            telemetry.addData("Target", hasTarget);
-            if (result != null) {
-                telemetry.addData("distance", getDistanceFromTag(result.getTa()));
-                telemetry.addData("tx", result.getTx());
+            // --- Telemetry ---
+            telemetry.addData("Target Found", hasTarget);
+            if (hasTarget) {
+                telemetry.addData("Distance", getDistanceFromTag(ta));
+                telemetry.addData("Target Angle (res_plus)", res_plus);
             }
-
-            //if (ballDetector.getBallCount() >= 3) {
-            //    gamepad2.rumble(500); // Alert driver that intake is full
-            //}
-
-            telemetry.addData("Estimated Intake V", intakeEstimatedV);
-            telemetry.addData("Ball Count", ballDetector.getBallCount());
-
-
+            telemetry.addData("Outtake Speed", OUTTAKE_SPEED);
             telemetry.update();
         }
     }

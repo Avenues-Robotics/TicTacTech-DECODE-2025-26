@@ -17,10 +17,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
             .mass(10.51483) // make sure to retune double check
-            .forwardZeroPowerAcceleration(-32.04765227402958)
-            .lateralZeroPowerAcceleration(-54.94265508423035)
+            .forwardZeroPowerAcceleration(-31.427000757540114)
+            .lateralZeroPowerAcceleration(-62.09732818376982)
             .translationalPIDFCoefficients(new PIDFCoefficients(0.077, 0, 0.01, 0.026))
-            .headingPIDFCoefficients(new PIDFCoefficients(0.65,0,0.002,0.026))
+            .headingPIDFCoefficients(new PIDFCoefficients(1,0,0.004,0.03))
             .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.021,0,0.0001,0.6,0.026)) // try slightly increasing D and see if it helps with path overshoot
             .centripetalScaling(0.01)
             ;
@@ -32,8 +32,8 @@ public class Constants {
             .leftFrontMotorName("fL")
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .xVelocity(63.56825989250124)
-            .yVelocity(53.53905240757259)
+            .xVelocity(59.76044277882013)
+            .yVelocity(49.24998269869587)
             ;
 
 
