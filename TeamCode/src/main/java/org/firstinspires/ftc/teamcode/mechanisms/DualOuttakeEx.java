@@ -31,7 +31,8 @@ public class DualOuttakeEx {
         outtakeL = hardwareMap.get(DcMotorEx.class, "outtakeL");
         outtakeR = hardwareMap.get(DcMotorEx.class, "outtakeR");
 
-        outtakeR.setDirection(DcMotorSimple.Direction.REVERSE);
+        outtakeL.setDirection(DcMotorSimple.Direction.REVERSE);
+        outtakeR.setDirection(DcMotorSimple.Direction.FORWARD);
 
         outtakeL.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
         outtakeR.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
@@ -67,6 +68,14 @@ public class DualOuttakeEx {
     }
 
     public boolean isAtVelocity(double tolerance) {
-        return Math.abs(TARGET_VELOCITY - outtakeL.getVelocity()) < tolerance;
+        return Math.abs(TARGET_VELOCITY - avgOuttakeVelocity()) < tolerance;
+    }
+
+    public float avgOuttakeVelocity() {
+        return (float) ((outtakeL.getVelocity() + outtakeR.getVelocity()) / 2.0);
+    }
+
+    public float outtakeDif(){
+        return (float) (outtakeL.getVelocity() - outtakeR.getVelocity());
     }
 }

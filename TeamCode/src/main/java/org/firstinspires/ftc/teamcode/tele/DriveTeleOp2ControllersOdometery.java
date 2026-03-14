@@ -74,14 +74,16 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
         outtake.init(hardwareMap, telemetry);
 
         // Load auto position if available
-        //if (PoseStorage.currentPose != null) {
-        //    follower.setStartingPose(new Pose(
-        //            PoseStorage.currentPose.getX(),
-        //            PoseStorage.currentPose.getY(),
-        //            PoseStorage.currentPose.getHeading()
-        //    ));
-        //}
-        follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
+        if (!(PoseStorage.currentPose.getX() == 1000)) {
+            follower.setStartingPose(new Pose(
+                    PoseStorage.currentPose.getX(),
+                    PoseStorage.currentPose.getY(),
+                    PoseStorage.currentPose.getHeading()
+            ));
+        }
+        else{
+            follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
+        }
 
         waitForStart();
         follower.startTeleopDrive();
@@ -192,7 +194,7 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
             // Outtake Polynomial
             outtakeSpeed = 584 + (-1.09 * distance) + 0.0119 * (Math.pow(distance, 2));
 
-            outtake.setTVelocity(-outtakeSpeed);
+            outtake.setTVelocity(outtakeSpeed);
             outtake.update();
 
 
@@ -204,7 +206,9 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
             telemetry.addData("Target Angle", (int)finalTargetHeading);
             telemetry.addData("Heading Error", (int)error);
             telemetry.addData("Dist to Goal", (int)distance);
-            telemetry.addData("Outtake Speed", OUTTAKE_SPEED);
+            telemetry.addData("Target Outtake Speed", (int)outtakeSpeed);
+            telemetry.addData("Actual Outtake Speed", outtake.avgOuttakeVelocity());
+            telemetry.addData("Outtake Difference", outtake.outtakeDif());
 
             telemetry.update();
         }

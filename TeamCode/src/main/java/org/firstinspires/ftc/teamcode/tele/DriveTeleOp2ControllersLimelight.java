@@ -12,7 +12,6 @@ import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
-import org.firstinspires.ftc.teamcode.mechanisms.IntakeBallDetector;
 
 @Config
 @TeleOp(name = "DriveTeleOp2ControllersLimelight", group = "Main")
@@ -47,7 +46,6 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
     private Limelight3A limelight;
     private DualOuttakeEx outtake = new DualOuttakeEx();
     private ArcadeDrive robot = new ArcadeDrive();
-    private IntakeBallDetector ballDetector = new IntakeBallDetector();
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
@@ -88,7 +86,6 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
         robot.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
-        ballDetector.init(robot.getIntake());
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
@@ -196,7 +193,6 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
 
             if (gamepad2.right_trigger >= 0.1) {
                 robot.setTransferPower(-1.0);
-                ballDetector.resetCount();
             } else if (gamepad2.right_bumper) {
                 robot.setTransferPower(1.0);
             } else {
