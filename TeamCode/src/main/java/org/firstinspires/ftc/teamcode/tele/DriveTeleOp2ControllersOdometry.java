@@ -38,7 +38,7 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
     private Follower follower;
     private DualOuttakeEx outtake = new DualOuttakeEx();
     private ArcadeDrive arcade = new ArcadeDrive();
-    private OdomAimingSystem aimingSystem = new OdomAimingSystem();
+    private OdomAimingSystem aimingSystem;
     private LEDController leds = new LEDController();
 
     private boolean fastMode = false;
@@ -56,6 +56,7 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         follower = Constants.createFollower(hardwareMap);
+        aimingSystem = new OdomAimingSystem(follower);
         arcade.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
 
@@ -100,7 +101,10 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
             if (gamepad1.right_trigger < 0.1) triggerHeld = false;
 
             // --- AIMING SYSTEM ---
-            OdomAimingSystem.AimResult aim = aimingSystem.calculateAim(currentPose, robotVel);
+            OdomAimingSystem.AimResult aim = aimingSystem.calculateAim(currentPose);
+
+            // Aim lock detection (for LEDs only)
+            boolean locked = Math.abs(aim.error) < HEADING_TOLERANCE_DEG;
 
             // --- PID ROTATION ---
             double r;
@@ -191,7 +195,13 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
                 leds.shooting();
             }
             else if (gamepad1.left_trigger >= 0.1) {
-                leds.aiming();
+
+                if (locked) {
+                    leds.locked();
+                } else {
+                    leds.aiming();
+                }
+
             }
             else {
                 leds.normal();
