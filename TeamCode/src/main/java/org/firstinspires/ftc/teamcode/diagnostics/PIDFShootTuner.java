@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.alignment;
+package org.firstinspires.ftc.teamcode.diagnostics;
 
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
@@ -12,9 +12,8 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 @Config
-@Disabled
-@TeleOp(name = "testShoot", group = "Tuning")
-public class testShoot extends OpMode {
+@TeleOp(name = "PIDFShootTuner", group = "Tuning")
+public class PIDFShootTuner extends OpMode {
 
     // ---------- Motors ----------
     private DcMotorEx outtakeL;

@@ -27,7 +27,7 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
     public static double NORMAL_MODE_SPEED = 0.45;
 
     public static double TARGET_X = 132.0;
-    public static double TARGET_Y = 132.0;
+    public static double TARGET_Y = 128.0;
 
     // Default Reset Position (Update these to your starting wall position)
     public static double RESET_X = 8.0;
@@ -41,6 +41,9 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
     public static double F = 0.025; // Minimum power to overcome static friction
     public static double D_FILTER_GAIN = 0.7;
     public static double HEADING_TOLERANCE_DEG = 1.0;
+    public static double OUTTAKE_SPEED = 640;
+
+    public static double DEADZONE_CUTOFF = 0.01;
 
     private Follower follower;
     private DualOuttakeEx outtake = new DualOuttakeEx();
@@ -60,6 +63,8 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
 
     private double expo(double v) { return v * v * v; }
 
+    private double deadzone(double val) { return Math.abs(val) < DEADZONE_CUTOFF ? 0 : val; }
+
     @Override
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
@@ -69,13 +74,14 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
         outtake.init(hardwareMap, telemetry);
 
         // Load auto position if available
-        if (PoseStorage.currentPose != null) {
-            follower.setStartingPose(new Pose(
-                    PoseStorage.currentPose.getX(),
-                    PoseStorage.currentPose.getY(),
-                    PoseStorage.currentPose.getHeading()
-            ));
-        }
+        //if (PoseStorage.currentPose != null) {
+        //    follower.setStartingPose(new Pose(
+        //            PoseStorage.currentPose.getX(),
+        //            PoseStorage.currentPose.getY(),
+        //            PoseStorage.currentPose.getHeading()
+        //    ));
+        //}
+        follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
 
         waitForStart();
         follower.startTeleopDrive();
@@ -87,17 +93,14 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
 
             // --- RE-ZERO LOGIC ---
             // Full Reset (X, Y, and Heading)
-            if (gamepad1.options && !optionsHeld) {
-                follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
+            // Inside your while(opModeIsActive()) loop:
+
+            if (gamepad1.options && !optionsHeld) { // Press "Options/Start" to reset
+                follower.setPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
                 optionsHeld = true;
-            } else if (!gamepad1.options) optionsHeld = false;
-
-            // Heading Only Reset (Sets current direction to 0 degrees)
-            if (gamepad1.back && !backHeld) {
-                follower.setStartingPose(new Pose(currentPose.getX(), currentPose.getY(), 0));
-                backHeld = true;
-            } else if (!gamepad1.back) backHeld = false;
-
+            } else if (!gamepad1.options) {
+                optionsHeld = false;
+            }
 
             // --- TOGGLE FAST MODE ---
             if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
@@ -187,7 +190,8 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
             arcade.startBrodskyBelt(brodOn);
 
             // Outtake Polynomial
-            outtakeSpeed = 639 + (-1.98 * distance) + 0.015 * (Math.pow(distance, 2));
+            outtakeSpeed = 584 + (-1.09 * distance) + 0.0119 * (Math.pow(distance, 2));
+
             outtake.setTVelocity(-outtakeSpeed);
             outtake.update();
 
@@ -200,6 +204,8 @@ public class DriveTeleOp2ControllersOdometery extends LinearOpMode {
             telemetry.addData("Target Angle", (int)finalTargetHeading);
             telemetry.addData("Heading Error", (int)error);
             telemetry.addData("Dist to Goal", (int)distance);
+            telemetry.addData("Outtake Speed", OUTTAKE_SPEED);
+
             telemetry.update();
         }
     }
