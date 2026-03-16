@@ -4,6 +4,7 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
@@ -19,7 +20,7 @@ import com.pedropathing.math.Vector;
 
 @Config
 @TeleOp(name = "DriveTeleOp2ControllersOdometry", group = "Main")
-public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
+public class DriveTeleOp2ControllersOdometry extends OpMode {
 
     public static double FAST_MODE_SPEED = 1.0;
     public static double NORMAL_MODE_SPEED = 0.45;
@@ -48,10 +49,14 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
     private double lastError = 0.0, lastFilteredDerivative = 0.0;
     private long lastTime = 0L;
 
-    private double expo(double v) { return v * v * v; }
+    private long lastTelemetryTime = 0;
+
+    private double expo(double v) {
+        return v * v * v;
+    }
 
     @Override
-    public void runOpMode() {
+    public void init() {
 
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
@@ -73,141 +78,145 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
             follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
         }
 
-        waitForStart();
+    }
 
+    @Override
+    public void start() {
         follower.startTeleopDrive();
         leds.normal();
+        resetRuntime(); // Resets the OpMode timer
+    }
 
-        while (opModeIsActive()) {
 
-            follower.update();
+    @Override
+    public void loop() {
+        follower.update();
 
-            Pose currentPose = follower.getPose();
-            Vector robotVel = follower.getVelocity();
+        Pose currentPose = follower.getPose();
 
-            // --- RE-ZERO ODOM ---
-            if (gamepad1.options && !optionsHeld) {
-                follower.setPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
-                optionsHeld = true;
-            } else if (!gamepad1.options) {
-                optionsHeld = false;
+        // --- RE-ZERO ODOM ---
+        if (gamepad1.options && !optionsHeld) {
+            follower.setPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
+            optionsHeld = true;
+        } else if (!gamepad1.options) {
+            optionsHeld = false;
+        }
+
+        // --- FAST MODE TOGGLE ---
+        if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
+            fastMode = !fastMode;
+            triggerHeld = true;
+        }
+        if (gamepad1.right_trigger < 0.1) triggerHeld = false;
+
+        // --- AIMING SYSTEM ---
+        OdomAimingSystem.AimResult aim = aimingSystem.calculateAim(currentPose);
+
+        // Aim lock detection (for LEDs only)
+        boolean locked = Math.abs(aim.error) < HEADING_TOLERANCE_DEG;
+
+        // --- PID ROTATION ---
+        double r;
+
+        if (gamepad1.left_trigger >= 0.1) {
+
+            if (lastTime == 0) {
+                lastTime = System.nanoTime();
+                lastError = aim.error;
             }
 
-            // --- FAST MODE TOGGLE ---
-            if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
-                fastMode = !fastMode;
-                triggerHeld = true;
-            }
-            if (gamepad1.right_trigger < 0.1) triggerHeld = false;
+            if (Math.abs(aim.error) > HEADING_TOLERANCE_DEG) {
 
-            // --- AIMING SYSTEM ---
-            OdomAimingSystem.AimResult aim = aimingSystem.calculateAim(currentPose);
+                long currentTime = System.nanoTime();
+                double deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
 
-            // Aim lock detection (for LEDs only)
-            boolean locked = Math.abs(aim.error) < HEADING_TOLERANCE_DEG;
+                double rawDerivative = (deltaTime > 0)
+                        ? (aim.error - lastError) / deltaTime
+                        : 0;
 
-            // --- PID ROTATION ---
-            double r;
+                double filteredDerivative =
+                        (D_FILTER_GAIN * lastFilteredDerivative)
+                                + ((1.0 - D_FILTER_GAIN) * rawDerivative);
 
-            if (gamepad1.left_trigger >= 0.1) {
+                r = (P * aim.error)
+                        + (D * filteredDerivative)
+                        + (Math.signum(aim.error) * F);
 
-                if (Math.abs(aim.error) > HEADING_TOLERANCE_DEG) {
-
-                    long currentTime = System.nanoTime();
-                    double deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
-
-                    double rawDerivative = (deltaTime > 0)
-                            ? (aim.error - lastError) / deltaTime
-                            : 0;
-
-                    double filteredDerivative =
-                            (D_FILTER_GAIN * lastFilteredDerivative)
-                                    + ((1.0 - D_FILTER_GAIN) * rawDerivative);
-
-                    r = (P * aim.error)
-                            + (D * filteredDerivative)
-                            + (Math.signum(aim.error) * F);
-
-                    lastError = aim.error;
-                    lastFilteredDerivative = filteredDerivative;
-                    lastTime = currentTime;
-
-                } else {
-                    r = 0;
-                }
+                lastError = aim.error;
+                lastFilteredDerivative = filteredDerivative;
+                lastTime = currentTime;
 
             } else {
-
-                r = expo(-gamepad1.right_stick_x);
-
-                lastError = 0.0;
-                lastFilteredDerivative = 0.0;
-                lastTime = System.nanoTime();
+                r = 0;
             }
 
-            // --- DRIVE ---
-            double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
+        } else {
 
-            follower.setTeleOpDrive(
-                    expo(-gamepad1.left_stick_y) * scale,
-                    expo(-gamepad1.left_stick_x) * scale,
-                    r,
-                    true
-            );
+            r = expo(-gamepad1.right_stick_x);
 
-            // --- INTAKE ---
-            arcade.setIntakePower((gamepad2.left_trigger > 0.1) ? -1.0 : 1.0);
+            lastError = 0.0;
+            lastFilteredDerivative = 0.0;
+            lastTime = 0;
+        }
 
-            // --- TRANSFER ---
-            boolean shooting = false;
+        // --- DRIVE ---
+        double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
 
-            if (gamepad2.right_trigger >= 0.1) {
-                arcade.setTransferPower(-1.0);
-                shooting = true;
+        follower.setTeleOpDrive(
+                expo(-gamepad1.left_stick_y) * scale,
+                expo(-gamepad1.left_stick_x) * scale,
+                r,
+                true
+        );
+
+        // --- INTAKE ---
+        arcade.setIntakePower((gamepad2.left_trigger > 0.1) ? -1.0 : 1.0);
+
+        // --- TRANSFER ---
+        boolean shooting = false;
+
+        if (gamepad2.right_trigger >= 0.1) {
+            arcade.setTransferPower(-1.0);
+            shooting = true;
+        } else if (gamepad2.right_bumper) {
+            arcade.setTransferPower(1.0);
+        } else {
+            arcade.setTransferPower(0.3);
+        }
+
+        // --- BRODSKY BELT ---
+        if (gamepad1.right_bumper && !bumperHeld) {
+            brodOn = !brodOn;
+            bumperHeld = true;
+        } else if (!gamepad1.right_bumper) {
+            bumperHeld = false;
+        }
+
+        arcade.startBrodskyBelt(brodOn);
+
+        // --- OUTTAKE ---
+        outtake.setTVelocity(aim.targetOuttakeSpeed);
+        outtake.update();
+
+        // --- LED STATE MACHINE ---
+        if (getRuntime() > 90) {
+            leds.endgame();
+        } else if (shooting) {
+            leds.shooting();
+        } else if (gamepad1.left_trigger >= 0.1) {
+
+            if (locked && outtake.isAtVelocity(20)) {
+                leds.locked();
+            } else {
+                leds.aiming();
             }
-            else if (gamepad2.right_bumper) {
-                arcade.setTransferPower(1.0);
-            }
-            else {
-                arcade.setTransferPower(0.3);
-            }
 
-            // --- BRODSKY BELT ---
-            if (gamepad1.right_bumper && !bumperHeld) {
-                brodOn = !brodOn;
-                bumperHeld = true;
-            }
-            else if (!gamepad1.right_bumper) {
-                bumperHeld = false;
-            }
+        } else {
+            leds.normal();
+        }
 
-            arcade.startBrodskyBelt(brodOn);
-
-            // --- OUTTAKE ---
-            outtake.setTVelocity(aim.targetOuttakeSpeed);
-            outtake.update();
-
-            // --- LED STATE MACHINE ---
-            if (getRuntime() > 90) {
-                leds.endgame();
-            }
-            else if (shooting) {
-                leds.shooting();
-            }
-            else if (gamepad1.left_trigger >= 0.1) {
-
-                if (locked) {
-                    leds.locked();
-                } else {
-                    leds.aiming();
-                }
-
-            }
-            else {
-                leds.normal();
-            }
-
-            // --- TELEMETRY ---
+        // --- TELEMETRY ---
+        if (System.currentTimeMillis() - lastTelemetryTime > 100) {
             telemetry.addData(">> MODE", fastMode ? "FAST" : "NORMAL");
             telemetry.addData("Heading Error", (int) aim.error);
             telemetry.addData("Dist to Goal", (int) aim.distance);
@@ -216,6 +225,17 @@ public class DriveTeleOp2ControllersOdometry extends LinearOpMode {
             telemetry.addData("Outtake Dif", outtake.outtakeDif());
 
             telemetry.update();
+            lastTelemetryTime = System.currentTimeMillis();
         }
+    }
+
+    @Override
+    public void stop() {
+        // Force everything to zero power when the stop button is pressed
+        follower.setTeleOpDrive(0, 0, 0);
+        arcade.setIntakePower(0);
+        arcade.setTransferPower(0);
+        outtake.setTVelocity(0);
+        leds.normal(); // Or turn off LEDs
     }
 }
