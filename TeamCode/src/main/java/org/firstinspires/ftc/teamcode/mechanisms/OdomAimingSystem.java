@@ -12,6 +12,7 @@ public class OdomAimingSystem {
     public static double TARGET_X = 132.0;
     public static double TARGET_Y = 128.0;
     public static double PROJECTILE_AIR_TIME = 0.42;
+    public static double Y_INTERCEPT = 584;
 
     public static class AimResult {
         public double finalHeading;
@@ -58,7 +59,7 @@ public class OdomAimingSystem {
         result.error = AngleUnit.normalizeDegrees(result.finalHeading - robotHeadingDeg);
 
         // --- Step 6: Outtake Speed (Polynomial) ---
-        result.targetOuttakeSpeed = 584 + (-1.09 * result.distance) + (0.0119 * result.distance * result.distance);
+        result.targetOuttakeSpeed = Y_INTERCEPT + (-1.09 * result.distance) + (0.0119 * result.distance * result.distance);
 
         return result;
     }

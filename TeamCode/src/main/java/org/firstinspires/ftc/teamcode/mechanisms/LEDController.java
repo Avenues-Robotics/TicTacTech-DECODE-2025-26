@@ -48,9 +48,9 @@ public class LEDController {
                 prism.insertAndUpdateAnimation(
                         LayerHeight.LAYER_0,
                         new PrismAnimations.Snakes(
-                                6, 12, 30,
+                                6, 4, 25,
                                 Color.TRANSPARENT,
-                                0.5f,
+                                1f,
                                 Direction.Forward,
                                 Color.YELLOW
                         )
