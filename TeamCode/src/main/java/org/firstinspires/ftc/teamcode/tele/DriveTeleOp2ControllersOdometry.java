@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.mechanisms.OdomAimingSystem;
 import org.firstinspires.ftc.teamcode.mechanisms.LEDController;
+import org.firstinspires.ftc.teamcode.mechanisms.BallDetector;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import com.pedropathing.follower.Follower;
@@ -36,7 +37,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public static double D_FILTER_GAIN = 0.7;
     public static double HEADING_TOLERANCE_DEG = 1.0;
 
-    public static boolean MAX_POWER = false;
+    private boolean MAX_POWER = false;
 
 
     private Follower follower;
@@ -44,6 +45,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     private ArcadeDrive arcade = new ArcadeDrive();
     private OdomAimingSystem aimingSystem;
     private LEDController leds = new LEDController();
+    private BallDetector ballDetector = new BallDetector();
 
     private boolean fastMode = false;
     private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false, maxPowerHeld = false;
@@ -70,6 +72,8 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         leds.initHardware(hardwareMap);
         leds.initTele();
 
+        ballDetector.init(hardwareMap);
+
         if (!(PoseStorage.currentPose.getX() == 1000)) {
             follower.setStartingPose(new Pose(
                     PoseStorage.currentPose.getX(),
@@ -94,6 +98,10 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public void loop() {
         follower.update();
 
+        ballDetector.update();
+        int balls = ballDetector.getBallCount();
+        leds.setBallCount(balls);
+
         Pose currentPose = follower.getPose();
 
         // --- RE-ZERO ODOM ---
@@ -104,13 +112,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
             optionsHeld = false;
         }
 
-        if (gamepad2.triangle && !maxPowerHeld) {
-            MAX_POWER = true;
-        } else if (!gamepad2.triangle) {
-            MAX_POWER = false;
-            maxPowerHeld = false;
-        }
-
+        MAX_POWER = gamepad2.triangle;
         // --- FAST MODE TOGGLE ---
         if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
             fastMode = !fastMode;
@@ -240,9 +242,13 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
             telemetry.addData("Actual Speed", (int) outtake.avgOuttakeVelocity());
             telemetry.addData("Outtake Dif", outtake.outtakeDif());
 
+            ballDetector.telemetry(telemetry);
+
             telemetry.update();
             lastTelemetryTime = System.currentTimeMillis();
         }
+
+        leds.update();
     }
 
     @Override

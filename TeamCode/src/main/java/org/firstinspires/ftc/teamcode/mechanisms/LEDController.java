@@ -7,6 +7,7 @@ import org.firstinspires.ftc.teamcode.drivers.Lights.Direction;
 import org.firstinspires.ftc.teamcode.drivers.Lights.GoBildaPrismDriver;
 import org.firstinspires.ftc.teamcode.drivers.Lights.GoBildaPrismDriver.LayerHeight;
 import org.firstinspires.ftc.teamcode.drivers.Lights.PrismAnimations;
+import com.qualcomm.robotcore.hardware.Servo;
 
 public class LEDController {
 
@@ -24,8 +25,18 @@ public class LEDController {
 
     private LEDState currentState = null;
 
+    private Servo indicator;
+
+    private double lastIndicatorPosition = -1;
+
+    private boolean flashState = false;
+    private long lastFlashTime = 0;
+
+    private int ballCount = 0;
+
     public void initHardware(HardwareMap hardwareMap) {
         prism = hardwareMap.get(GoBildaPrismDriver.class, "prism");
+        indicator = hardwareMap.get(Servo.class, "indicator");
     }
 
     private void setState(LEDState newState) {
@@ -142,5 +153,42 @@ public class LEDController {
                 LayerHeight.LAYER_0,
                 new PrismAnimations.Solid(allianceColor)
         );
+    }
+
+    public void setBallCount(int count) {
+        ballCount = Math.max(0, Math.min(count, 3));
+    }
+
+    public void update() {
+        updateIndicator();
+    }
+
+    private void updateIndicator() {
+
+        double position;
+
+        if (ballCount == 3) {
+            // Flash when full
+            long now = System.currentTimeMillis();
+            if (now - lastFlashTime > 300) {
+                flashState = !flashState;
+                lastFlashTime = now;
+            }
+
+            position = flashState ? 0.4 : 0.0; // GREEN blink
+        } else {
+            switch (ballCount) {
+                case 0: position = 0.0; break; // OFF
+                case 1: position = 1.0; break; // RED
+                case 2: position = 0.2; break; // BLUE
+                default: position = 0.0; break;
+            }
+        }
+
+        // Prevent unnecessary updates
+        if (position != lastIndicatorPosition) {
+            indicator.setPosition(position);
+            lastIndicatorPosition = position;
+        }
     }
 }
