@@ -1,0 +1,12 @@
+1. Make sure to enable all tags on the field for the most optimal MT2 position vis except the obelisk because of variability
+2. Measure precise limelight distances from center of the robot in order to gain MT2 accuracy
+
+
+3.
+SPEED_TO_VELOCITY_SCALE = 0.001.
+
+Run tests at a few distances. Shoot an artifact, measure how long it takes to hit the goal, and adjust this scaling value so code's airTime prediction matches reality.
+
+4.
+Tune the alpha blend rates (VISION_ALPHA_XY and HIGH_CONFIDENCE_ALPHA_XY) on a real field. If those values are too high, robot's position will visually teleport or jitter when it sees a tag.
+
