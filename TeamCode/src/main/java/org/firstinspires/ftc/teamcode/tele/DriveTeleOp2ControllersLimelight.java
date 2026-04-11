@@ -149,7 +149,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 double strafeCompDeg = clamp(filteredStrafeVel * STRAFE_COMP_K, -STRAFE_COMP_MAX_DEG, STRAFE_COMP_MAX_DEG);
                 res_plus += strafeCompDeg;
 
-                OUTTAKE_SPEED = 639 + (-1.98 * distance) + 0.015 * (Math.pow(distance, 2));
+                //OUTTAKE_SPEED = 639 + (-1.98 * distance) + 0.015 * (Math.pow(distance, 2));
             }
 
             // --- Aiming PID ---
@@ -199,7 +199,7 @@ public class DriveTeleOp2ControllersLimelight extends LinearOpMode {
                 robot.setTransferPower(DRAWBACK_POWER);
             }
 
-            outtake.setTVelocity(-OUTTAKE_SPEED);
+            outtake.setTVelocity(OUTTAKE_SPEED);
             outtake.update();
 
             // --- Telemetry ---

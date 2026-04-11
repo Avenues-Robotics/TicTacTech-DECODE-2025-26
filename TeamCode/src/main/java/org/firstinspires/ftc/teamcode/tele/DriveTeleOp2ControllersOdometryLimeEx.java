@@ -274,7 +274,7 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
             }
 
             // Critical addition: Process indicator flashes
-            leds.update();
+            //leds.update();
 
             // ---------------- TELEMETRY ----------------
             telemetry.addData(">> MODE", fastMode ? "FAST" : "NORMAL");

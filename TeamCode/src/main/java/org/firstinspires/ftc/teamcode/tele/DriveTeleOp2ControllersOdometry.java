@@ -6,13 +6,14 @@ import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.mechanisms.OdomAimingSystem;
 import org.firstinspires.ftc.teamcode.mechanisms.LEDController;
-import org.firstinspires.ftc.teamcode.mechanisms.BallDetector;
+//import org.firstinspires.ftc.teamcode.mechanisms.BallDetector;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import com.pedropathing.follower.Follower;
@@ -37,18 +38,17 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public static double D_FILTER_GAIN = 0.7;
     public static double HEADING_TOLERANCE_DEG = 1.0;
 
-    private boolean MAX_POWER = false;
 
 
     private Follower follower;
     private DualOuttakeEx outtake = new DualOuttakeEx();
     private ArcadeDrive arcade = new ArcadeDrive();
     private OdomAimingSystem aimingSystem;
-    private LEDController leds = new LEDController();
-    private BallDetector ballDetector = new BallDetector();
+    //private LEDController leds = new LEDController();
+    //private BallDetector ballDetector = new BallDetector();
 
     private boolean fastMode = false;
-    private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false, maxPowerHeld = false;
+    private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false;
     private boolean brodOn = false;
 
     private double lastError = 0.0, lastFilteredDerivative = 0.0;
@@ -65,14 +65,20 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         follower = Constants.createFollower(hardwareMap);
+
+        hardwareMap.get(DcMotor.class, "fL").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        hardwareMap.get(DcMotor.class, "fR").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        hardwareMap.get(DcMotor.class, "bL").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        hardwareMap.get(DcMotor.class, "bR").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         aimingSystem = new OdomAimingSystem(follower);
         arcade.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
 
-        leds.initHardware(hardwareMap);
-        leds.initTele();
+        //leds.initHardware(hardwareMap);
+        //leds.initTele();
 
-        ballDetector.init(hardwareMap);
+        //ballDetector.init(hardwareMap);
 
         if (!(PoseStorage.currentPose.getX() == 1000)) {
             follower.setStartingPose(new Pose(
@@ -89,7 +95,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     @Override
     public void start() {
         follower.startTeleopDrive();
-        leds.normal();
+        //leds.normal();
         resetRuntime(); // Resets the OpMode timer
     }
 
@@ -98,9 +104,9 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public void loop() {
         follower.update();
 
-        ballDetector.update();
-        int balls = ballDetector.getBallCount();
-        leds.setBallCount(balls);
+        //ballDetector.update();
+        //int balls = ballDetector.getBallCount();
+        //leds.setBallCount(balls);
 
         Pose currentPose = follower.getPose();
 
@@ -112,7 +118,6 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
             optionsHeld = false;
         }
 
-        MAX_POWER = gamepad2.triangle;
         // --- FAST MODE TOGGLE ---
         if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
             fastMode = !fastMode;
@@ -173,11 +178,18 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         // --- DRIVE ---
         double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
 
+//        follower.setTeleOpDrive(
+//                -expo(gamepad1.left_stick_y) * scale,
+//                -expo(gamepad1.left_stick_x) * scale,
+//                r,
+//                true
+//        );
+
         follower.setTeleOpDrive(
-                expo(-gamepad1.left_stick_y) * scale,
-                expo(-gamepad1.left_stick_x) * scale,
-                r,
-                true
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -gamepad1.right_stick_x,
+                true // Robot Centric
         );
 
         // --- INTAKE ---
@@ -206,32 +218,26 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         arcade.startBrodskyBelt(brodOn);
 
         // --- OUTTAKE ---
-        if (MAX_POWER){
-            outtake.setTVelocity(6000);
-            outtake.update();
-        }
-        else{
-            outtake.setTVelocity(aim.targetOuttakeSpeed);
-            outtake.update();
-        }
+        outtake.setTVelocity(0);//aim.targetOuttakeSpeed
+        outtake.update();
 
 
         // --- LED STATE MACHINE ---
-        if (getRuntime() > 90) {
-            leds.endgame();
-        } else if (shooting) {
-            leds.shooting();
-        } else if (gamepad1.left_trigger >= 0.1) {
-
-            if (locked && outtake.isAtVelocity(20)) {
-                leds.locked();
-            } else {
-                leds.aiming();
-            }
-
-        } else {
-            leds.normal();
-        }
+//        if (getRuntime() > 90) {
+//            leds.endgame();
+//        } else if (shooting) {
+//            leds.shooting();
+//        } else if (gamepad1.left_trigger >= 0.1) {
+//
+//            if (locked && outtake.isAtVelocity(20)) {
+//                leds.locked();
+//            } else {
+//                leds.aiming();
+//            }
+//
+//        } else {
+//            leds.normal();
+//        }
 
         // --- TELEMETRY ---
         if (System.currentTimeMillis() - lastTelemetryTime > 100) {
@@ -242,13 +248,13 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
             telemetry.addData("Actual Speed", (int) outtake.avgOuttakeVelocity());
             telemetry.addData("Outtake Dif", outtake.outtakeDif());
 
-            ballDetector.telemetry(telemetry);
+            //ballDetector.telemetry(telemetry);
 
             telemetry.update();
             lastTelemetryTime = System.currentTimeMillis();
         }
 
-        leds.update();
+        //leds.update();
     }
 
     @Override
@@ -258,6 +264,6 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         arcade.setIntakePower(0);
         arcade.setTransferPower(0);
         outtake.setTVelocity(0);
-        leds.normal(); // Or turn off LEDs
+        //leds.normal(); // Or turn off LEDs
     }
 }

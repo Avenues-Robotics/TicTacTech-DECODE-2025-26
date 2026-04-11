@@ -36,7 +36,7 @@ public class LEDController {
 
     public void initHardware(HardwareMap hardwareMap) {
         prism = hardwareMap.get(GoBildaPrismDriver.class, "prism");
-        indicator = hardwareMap.get(Servo.class, "indicator");
+        //indicator = hardwareMap.get(Servo.class, "indicator");
     }
 
     private void setState(LEDState newState) {
@@ -58,13 +58,7 @@ public class LEDController {
             case NORMAL:
                 prism.insertAndUpdateAnimation(
                         LayerHeight.LAYER_0,
-                        new PrismAnimations.Snakes(
-                                6, 4, 25,
-                                Color.TRANSPARENT,
-                                1f,
-                                Direction.Forward,
-                                Color.YELLOW
-                        )
+                        new PrismAnimations.Solid(Color.YELLOW)
                 );
                 break;
 
@@ -72,9 +66,9 @@ public class LEDController {
                 prism.insertAndUpdateAnimation(
                         LayerHeight.LAYER_0,
                         new PrismAnimations.Snakes(
-                                6, 10, 25,
+                                6, 2, 15,
                                 Color.TRANSPARENT,
-                                0.6f,
+                                1f,
                                 Direction.Forward,
                                 Color.WHITE
                         )
@@ -96,7 +90,7 @@ public class LEDController {
                                 Color.TRANSPARENT,
                                 1.0f,
                                 Direction.Forward,
-                                Color.WHITE
+                                Color.YELLOW
                         )
                 );
                 break;
@@ -159,36 +153,36 @@ public class LEDController {
         ballCount = Math.max(0, Math.min(count, 3));
     }
 
-    public void update() {
-        updateIndicator();
-    }
+//    public void update() {
+//        updateIndicator();
+//    }
 
-    private void updateIndicator() {
-
-        double position;
-
-        if (ballCount == 3) {
-            // Flash when full
-            long now = System.currentTimeMillis();
-            if (now - lastFlashTime > 300) {
-                flashState = !flashState;
-                lastFlashTime = now;
-            }
-
-            position = flashState ? 0.4 : 0.0; // GREEN blink
-        } else {
-            switch (ballCount) {
-                case 0: position = 0.0; break; // OFF
-                case 1: position = 1.0; break; // RED
-                case 2: position = 0.2; break; // BLUE
-                default: position = 0.0; break;
-            }
-        }
+//    private void updateIndicator() {
+//
+//        double position;
+//
+//        if (ballCount == 3) {
+//            // Flash when full
+//            long now = System.currentTimeMillis();
+//            if (now - lastFlashTime > 300) {
+//                flashState = !flashState;
+//                lastFlashTime = now;
+//            }
+//
+//            position = flashState ? 0.4 : 0.0; // GREEN blink
+//        } else {
+//            switch (ballCount) {
+//                case 0: position = 0.0; break; // OFF
+//                case 1: position = 1.0; break; // RED
+//                case 2: position = 0.2; break; // BLUE
+//                default: position = 0.0; break;
+//            }
+//        }
 
         // Prevent unnecessary updates
-        if (position != lastIndicatorPosition) {
-            indicator.setPosition(position);
-            lastIndicatorPosition = position;
-        }
+        //if (position != lastIndicatorPosition) {
+        //    indicator.setPosition(position);
+        //    lastIndicatorPosition = position;
+        //}
     }
-}
+//}

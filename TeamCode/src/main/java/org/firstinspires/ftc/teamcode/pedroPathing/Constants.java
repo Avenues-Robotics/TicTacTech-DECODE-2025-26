@@ -18,11 +18,11 @@ public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
             .mass(10.51483) // make sure to retune double check
             .forwardZeroPowerAcceleration(-31.427000757540114)
-            .lateralZeroPowerAcceleration(-62.09732818376982)
-            .translationalPIDFCoefficients(new PIDFCoefficients(0.077, 0, 0.01, 0.026))
-            .headingPIDFCoefficients(new PIDFCoefficients(1,0,0.004,0.03))
-            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.021,0,0.0001,0.6,0.026)) // try slightly increasing D and see if it helps with path overshoot
-            .centripetalScaling(0.01)
+            .lateralZeroPowerAcceleration(-60.965944737115656)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.093, 0, 0.013, 0.027))
+            .headingPIDFCoefficients(new PIDFCoefficients(0.87,0,0.02,0.026))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.02,0,0.005,0.6,0.027)) // try slightly increasing D and see if it helps with path overshoot
+            .centripetalScaling(1)
             ;
     public static MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
@@ -32,8 +32,10 @@ public class Constants {
             .leftFrontMotorName("fL")
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .xVelocity(59.76044277882013)
-            .yVelocity(49.24998269869587)
+            .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .xVelocity(77.85071954201526)
+            .yVelocity(59.95660688745694)
             ;
 
 
