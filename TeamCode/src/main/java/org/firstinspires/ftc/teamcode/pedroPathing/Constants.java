@@ -22,7 +22,7 @@ public class Constants {
             .translationalPIDFCoefficients(new PIDFCoefficients(0.093, 0, 0.013, 0.027))
             .headingPIDFCoefficients(new PIDFCoefficients(0.87,0,0.02,0.026))
             .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.02,0,0.005,0.6,0.027)) // try slightly increasing D and see if it helps with path overshoot
-            .centripetalScaling(1)
+            .centripetalScaling(0.01)
             ;
     public static MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)

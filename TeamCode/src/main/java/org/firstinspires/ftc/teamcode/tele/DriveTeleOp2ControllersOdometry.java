@@ -80,15 +80,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
 
         //ballDetector.init(hardwareMap);
 
-        if (!(PoseStorage.currentPose.getX() == 1000)) {
-            follower.setStartingPose(new Pose(
-                    PoseStorage.currentPose.getX(),
-                    PoseStorage.currentPose.getY(),
-                    PoseStorage.currentPose.getHeading()
-            ));
-        } else {
-            follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
-        }
+        follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
 
     }
 

@@ -29,8 +29,8 @@ public class MecanumDriveTest extends OpMode {
         bR.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Reverse the left side motors so positive power drives the robot forward
-        fL.setDirection(DcMotorSimple.Direction.REVERSE);
-        bL.setDirection(DcMotorSimple.Direction.REVERSE);
+        fL.setDirection(DcMotorSimple.Direction.FORWARD);
+        bL.setDirection(DcMotorSimple.Direction.FORWARD);
         fR.setDirection(DcMotorSimple.Direction.FORWARD);
         bR.setDirection(DcMotorSimple.Direction.FORWARD);
 
