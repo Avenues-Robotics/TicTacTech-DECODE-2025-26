@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.diagnostics;
+package org.firstinspires.ftc.teamcode.diagnostics.pidfTuners;
 
 import android.util.Log;
 
@@ -26,38 +26,25 @@ public class PositionPIDFTuner {
         Telemetry        telemetry = null;
         LoopCallback     loopCheck = () -> true;
 
-        double maxPower          = 0.7;   // hard cap, never exceed for position systems
-        double minPosition       = 0;     // lower bound, dont drive below this
-        double maxPosition       = 3000;  // upper bound, dont drive above this
-
-        // F identification should be a static hold test
-        double fHoldPower        = 0.05;  // starting power for gravity comp search
-        double fHoldTolerance    = 20;    // ticks "held in place"
+        double maxPower          = 0.7;
+        double minPosition       = 0;
+        double maxPosition       = 3000;
+        double fHoldPower        = 0.05;
+        double fHoldTolerance    = 20;
         long   fHoldSettleMs     = 600;
-
-        // Ku search
-        long   kuObserveMs       = 2000;  // position systems need longer observe windows
+        long   kuObserveMs       = 2000;
         double kuInitialHi       = 0.002;
-
-        // Step response
         long   stepObserveMs     = 2500;
-        long   returnTimeMs      = 1500;  // time to drive back to zero between steps
+        long   returnTimeMs      = 1500;
         int    maxIterations     = 14;
         double nudgeStart        = 0.12;
         double nudgeMin          = 0.004;
-
-        // Settling
-        double settlingBandTicks = 25;    // absolute ticks, tighter than % for position
-
-        // Cost weights
-        double wOvershoot        = 2.0;   // overshoot hurts mechanisms, penalize harder
+        double settlingBandTicks = 25;
+        double wOvershoot        = 2.0;
         double wSettling         = 0.002;
         double wSsError          = 3.0;
-
-        // Early exit
-        double overshootThreshold = 30;   // ticks
-        double ssErrorThreshold   = 15;   // ticks
-
+        double overshootThreshold = 30;
+        double ssErrorThreshold   = 15;
 
         public Config withMotor(DcMotorEx m) {
             sensor   = () -> (double) m.getCurrentPosition();
@@ -111,22 +98,22 @@ public class PositionPIDFTuner {
     }
 
     public Result tune() {
-        status("PositionPIDFTuner START  target=" + cfg.target + " ticks");
+        status("position pidf tuner start target=" + cfg.target + " ticks");
 
-        status("Phase 1: Getting the F value");
+        status("phase 1 getting the f value");
         F = identifyF();
         returnToZero();
         pause(500);
-        status(String.format("F = %.6f", F));
+        status(String.format("f = %.6f", F));
 
-        status("Phase 2: Ku Search");
+        status("phase 2 ku search");
         double[] zn = zieglerNichols();
         P = zn[0]; I = zn[1]; D = zn[2];
         returnToZero();
         pause(500);
-        status(String.format("P=%.6f  I=%.6f  D=%.6f", P, I, D));
+        status(String.format("p=%.6f  i=%.6f  d=%.6f", P, I, D));
 
-        status("Phase 3: Step response refinement");
+        status("phase 3 step response refinement");
         refine();
         returnToZero();
 
@@ -161,8 +148,8 @@ public class PositionPIDFTuner {
             double posAfter  = cfg.sensor.get();
             double drift     = Math.abs(posAfter - posBefore);
 
-            tele.addData("F search power", String.format("%.4f", holdPower));
-            tele.addData("Position drift", String.format("%.1f ticks", drift));
+            tele.addData("f search power", String.format("%.4f", holdPower));
+            tele.addData("position drift", String.format("%.1f ticks", drift));
             tele.update();
 
             if (drift < cfg.fHoldTolerance) {
@@ -189,7 +176,7 @@ public class PositionPIDFTuner {
 
         for (int iter = 0; iter < 12 && alive(); iter++) {
             double mid = (lo + hi) / 2.0;
-            tele.addData("Ku", String.format("lo=%.5f  hi=%.5f  mid=%.5f", lo, hi, mid));
+            tele.addData("ku", String.format("lo=%.5f  hi=%.5f  mid=%.5f", lo, hi, mid));
             tele.update();
             if (oscillates(mid)) { ku = mid; hi = mid; }
             else                 { lo = mid; }
@@ -257,7 +244,7 @@ public class PositionPIDFTuner {
         }
 
         stop();
-        if (crossTimes.size() < 3) return 0.8; // position systems oscillate slower
+        if (crossTimes.size() < 3) return 0.8;
         double span   = (crossTimes.get(crossTimes.size() - 1) - crossTimes.get(0)) / 1e9;
         double cycles = (crossTimes.size() - 1) / 2.0;
         return span / cycles;
@@ -269,9 +256,9 @@ public class PositionPIDFTuner {
 
         for (int iter = 0; iter < cfg.maxIterations && alive(); iter++) {
             returnToZero();
-            tele.addData("Refine iter", (iter + 1) + "/" + cfg.maxIterations);
-            tele.addData("Cost",        String.format("%.4f", bestCost));
-            tele.addData("Nudge",       String.format("%.1f%%", nudge * 100));
+            tele.addData("refine iter", (iter + 1) + "/" + cfg.maxIterations);
+            tele.addData("cost",        String.format("%.4f", bestCost));
+            tele.addData("nudge",       String.format("%.1f%%", nudge * 100));
             tele.update();
 
             boolean improved = false;
@@ -298,7 +285,7 @@ public class PositionPIDFTuner {
             returnToZero();
             if (check.overshootTicks < cfg.overshootThreshold
                     && check.ssError < cfg.ssErrorThreshold) {
-                status("Thresholds met going to do an early exit.");
+                status("thresholds met, doing an early exit");
                 break;
             }
 
@@ -416,17 +403,17 @@ public class PositionPIDFTuner {
     }
 
     private void report(Result r) {
-        String msg = "PositionPIDFTuner DONE\n" + r;
+        String msg = "position pidf tuner done\n" + r;
         status(msg);
         Log.i(TAG, msg);
-        tele.addLine("Final Values");
-        tele.addData("P", String.format("%.6f", r.P));
-        tele.addData("I", String.format("%.6f", r.I));
-        tele.addData("D", String.format("%.6f", r.D));
-        tele.addData("F", String.format("%.6f", r.F));
-        tele.addData("Overshoot", String.format("%.0f ticks", r.overshootTicks));
-        tele.addData("Settling",  String.format("%.0f ms",    r.settlingTimeMs));
-        tele.addData("SS Error",  String.format("%.1f ticks", r.ssError));
+        tele.addLine("final values");
+        tele.addData("p", String.format("%.6f", r.P));
+        tele.addData("i", String.format("%.6f", r.I));
+        tele.addData("d", String.format("%.6f", r.D));
+        tele.addData("f", String.format("%.6f", r.F));
+        tele.addData("overshoot", String.format("%.0f ticks", r.overshootTicks));
+        tele.addData("settling",  String.format("%.0f ms",    r.settlingTimeMs));
+        tele.addData("ss error",  String.format("%.1f ticks", r.ssError));
         tele.update();
     }
 

@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.diagnostics;
+package org.firstinspires.ftc.teamcode.diagnostics.pidfTuners;
 
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
@@ -12,35 +12,23 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 @Config
 @TeleOp(name = "PIDFTest", group = "Tuning")
 public class PIDFTest extends OpMode {
-
-    // ---------------- Motor names ----------------
     private DcMotorEx left;
     private DcMotorEx right, intake, transfer;
-
-    // ---------------- Dashboard values ----------------
-    public static double TARGET_VELOCITY = 3000.0;   // ticks/sec
+    public static double TARGET_VELOCITY = 3000.0;
     public static double TARGET_STEP = 50.0;
     public static double MAX_POWER = 1.0;
-
-    // These are the gains from YOUR auto tuner
-    public static double P = 0.004570; //0.004570 | 0.013200 | 0.000550 | 0.000431
+    public static double P = 0.004570;
     public static double I = 0.013200;
     public static double D = 0.000550;
     public static double F = 0.000431;
 
     public static boolean ENABLED = false;
-
-    // Set directions here to match your robot
-    public static int LEFT_DIRECTION = -1;   // -1 = REVERSE, 1 = FORWARD
-    public static int RIGHT_DIRECTION = 1;   // -1 = REVERSE, 1 = FORWARD
-
-    // ---------------- Internal controller state ----------------
+    public static int LEFT_DIRECTION = -1;
+    public static int RIGHT_DIRECTION = 1;
     private double integral = 0.0;
     private double lastError = 0.0;
     private long lastTimeNs = 0L;
     private double currentPower = 0.0;
-
-    // ---------------- Button edge detection ----------------
     private boolean lastY = false;
     private boolean lastX = false;
     private boolean lastDpadUp = false;
@@ -62,8 +50,6 @@ public class PIDFTest extends OpMode {
         right.setDirection(RIGHT_DIRECTION == -1
                 ? DcMotorSimple.Direction.REVERSE
                 : DcMotorSimple.Direction.FORWARD);
-
-        // This MUST match the tuner style
         left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
@@ -72,11 +58,11 @@ public class PIDFTest extends OpMode {
 
         lastTimeNs = System.nanoTime();
 
-        telemetry.addLine("Power PIDF Flywheel Tuner Ready");
-        telemetry.addLine("Y = toggle flywheel on/off");
-        telemetry.addLine("Dpad Up/Down = change target velocity");
-        telemetry.addLine("X = reset integrator");
-        telemetry.addLine("Edit P / I / D / F in FTC Dashboard");
+        telemetry.addLine("power pidf flywheel tuner ready");
+        telemetry.addLine("y toggles the flywheel");
+        telemetry.addLine("dpad up or down changes target velocity");
+        telemetry.addLine("x resets the integrator");
+        telemetry.addLine("edit p i d and f in ftc dashboard");
         telemetry.update();
     }
 
@@ -129,7 +115,6 @@ public class PIDFTest extends OpMode {
 
             double derivative = (error - lastError) / dt;
 
-            // EXACT SAME STYLE AS THE AUTO TUNER
             currentPower = clamp(
                     (P * error) +
                             (I * integral) +
@@ -153,22 +138,18 @@ public class PIDFTest extends OpMode {
             lastError = 0.0;
         }
 
-        telemetry.addData("Enabled", ENABLED);
-        telemetry.addData("Target Velocity", "%.2f", TARGET_VELOCITY);
-        telemetry.addData("Left Velocity", "%.2f", leftVelocity);
-        telemetry.addData("Right Velocity", "%.2f", rightVelocity);
-        telemetry.addData("Average Velocity", "%.2f", avgVelocity);
-        telemetry.addData("Error", "%.2f", error);
-        telemetry.addData("Power Output", "%.4f", currentPower);
-
-        telemetry.addLine("------------------------------");
-        telemetry.addData("P", "%.6f", P);
-        telemetry.addData("I", "%.6f", I);
-        telemetry.addData("D", "%.6f", D);
-        telemetry.addData("F", "%.6f", F);
-
-        telemetry.addLine("------------------------------");
-        telemetry.addData("Integral", "%.6f", integral);
+        telemetry.addData("enabled", ENABLED);
+        telemetry.addData("target velocity", "%.2f", TARGET_VELOCITY);
+        telemetry.addData("left velocity", "%.2f", leftVelocity);
+        telemetry.addData("right velocity", "%.2f", rightVelocity);
+        telemetry.addData("average velocity", "%.2f", avgVelocity);
+        telemetry.addData("error", "%.2f", error);
+        telemetry.addData("power output", "%.4f", currentPower);
+        telemetry.addData("p", "%.6f", P);
+        telemetry.addData("i", "%.6f", I);
+        telemetry.addData("d", "%.6f", D);
+        telemetry.addData("f", "%.6f", F);
+        telemetry.addData("integral", "%.6f", integral);
         telemetry.addData("dt", "%.6f", dt);
 
         telemetry.update();
