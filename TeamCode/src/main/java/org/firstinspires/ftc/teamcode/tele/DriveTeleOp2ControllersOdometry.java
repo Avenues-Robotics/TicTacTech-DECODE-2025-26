@@ -170,12 +170,20 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         // --- DRIVE ---
         double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
 
+//        follower.setTeleOpDrive(
+//                -expo(gamepad1.left_stick_y) * scale,
+//                -expo(gamepad1.left_stick_x) * scale,
+//                r,
+//                true
+//        );
+
         follower.setTeleOpDrive(
-                -expo(gamepad1.left_stick_y) * scale,
-                -expo(gamepad1.left_stick_x) * scale,
-                r,
-                true
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -gamepad1.right_stick_x,
+                true // Robot Centric
         );
+
         // --- INTAKE ---
         arcade.setIntakePower((gamepad2.left_trigger > 0.1) ? -1.0 : 1.0);
 
