@@ -10,8 +10,8 @@ public class TuneFlywheel extends PIDFTunerOpMode {
 
     @Override
     protected VelocityPIDFTuner.Config configureVelocity() {
-        DcMotorEx left = hardwareMap.get(DcMotorEx.class, "LS");
-        DcMotorEx right = hardwareMap.get(DcMotorEx.class, "RS");
+        DcMotorEx left = hardwareMap.get(DcMotorEx.class, "outtakeL");
+        DcMotorEx right = hardwareMap.get(DcMotorEx.class, "outtakeR");
 
         left.setDirection(DcMotorSimple.Direction.REVERSE);
         right.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -20,7 +20,7 @@ public class TuneFlywheel extends PIDFTunerOpMode {
         right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         return new VelocityPIDFTuner.Config()
-                .target(3000)
+                .target(1000)
                 .withMotors(left, right)
                 .telemetry(telemetry);
     }

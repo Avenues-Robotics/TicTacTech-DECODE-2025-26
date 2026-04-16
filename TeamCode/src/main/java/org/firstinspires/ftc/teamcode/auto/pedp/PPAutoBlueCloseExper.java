@@ -71,7 +71,7 @@ public class PPAutoBlueCloseExper extends OpMode {
         outtake.update();
 
         robot.setIntakePower(1.0);
-        outtake.setTVelocity(-OUTTAKE_SPEED);
+        outtake.setTVelocity(OUTTAKE_SPEED);
 
         switch (pathState) {
             case PATH_1:

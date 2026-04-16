@@ -26,8 +26,8 @@ public class DriveTeleOp2ControllersOdometeryOld extends LinearOpMode {
     public static double FAST_MODE_SPEED = 1.0;
     public static double NORMAL_MODE_SPEED = 0.45;
 
-    public static double TARGET_X = 132.0;
-    public static double TARGET_Y = 128.0;
+    public static double TARGET_X = 144;
+    public static double TARGET_Y = 126.0;
 
     // Default Reset Position (Update these to your starting wall position)
     public static double RESET_X = 8.0;
@@ -36,9 +36,9 @@ public class DriveTeleOp2ControllersOdometeryOld extends LinearOpMode {
 
     // --- Aiming PID Constants ---
     public static double PROJECTILE_AIR_TIME = 0.42;
-    public static double P = 0.045;
-    public static double D = 0.002;
-    public static double F = 0.025; // Minimum power to overcome static friction
+    public static double P = 0.005;
+    public static double D = 0;
+    public static double F = 0.01; // Minimum power to overcome static friction
     public static double D_FILTER_GAIN = 0.7;
     public static double HEADING_TOLERANCE_DEG = 1.0;
     public static double OUTTAKE_SPEED = 640;
@@ -192,7 +192,7 @@ public class DriveTeleOp2ControllersOdometeryOld extends LinearOpMode {
             // Outtake Polynomial
             outtakeSpeed = 584 + (-1.09 * distance) + 0.0119 * (Math.pow(distance, 2));
 
-            outtake.setTVelocity(-outtakeSpeed);
+            outtake.setTVelocity(outtakeSpeed);
             outtake.update();
 
 

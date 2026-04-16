@@ -15,7 +15,7 @@ public class PIDFTest extends OpMode {
 
     // ---------------- Motor names ----------------
     private DcMotorEx left;
-    private DcMotorEx right;
+    private DcMotorEx right, intake, transfer;
 
     // ---------------- Dashboard values ----------------
     public static double TARGET_VELOCITY = 3000.0;   // ticks/sec
@@ -23,10 +23,10 @@ public class PIDFTest extends OpMode {
     public static double MAX_POWER = 1.0;
 
     // These are the gains from YOUR auto tuner
-    public static double P = 0.529859;
-    public static double I = 1.689600;
-    public static double D = 0.070400;
-    public static double F = 0.000812;
+    public static double P = 0.004570; //0.004570 | 0.013200 | 0.000550 | 0.000431
+    public static double I = 0.013200;
+    public static double D = 0.000550;
+    public static double F = 0.000431;
 
     public static boolean ENABLED = false;
 
@@ -50,8 +50,10 @@ public class PIDFTest extends OpMode {
     public void init() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        left = hardwareMap.get(DcMotorEx.class, "LS");
-        right = hardwareMap.get(DcMotorEx.class, "RS");
+        left = hardwareMap.get(DcMotorEx.class, "outtakeL");
+        right = hardwareMap.get(DcMotorEx.class, "outtakeR");
+        intake = hardwareMap.get(DcMotorEx.class, "intake");
+        transfer = hardwareMap.get(DcMotorEx.class, "transfer");
 
         left.setDirection(LEFT_DIRECTION == -1
                 ? DcMotorSimple.Direction.REVERSE
@@ -139,6 +141,8 @@ public class PIDFTest extends OpMode {
 
             left.setPower(currentPower);
             right.setPower(currentPower);
+            transfer.setPower(-1.0);
+            intake.setPower(-1.0);
 
             lastError = error;
         } else {
