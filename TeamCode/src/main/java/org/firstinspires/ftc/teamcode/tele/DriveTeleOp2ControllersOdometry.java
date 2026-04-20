@@ -7,13 +7,13 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
 import org.firstinspires.ftc.teamcode.mechanisms.OdomAimingSystem;
 import org.firstinspires.ftc.teamcode.mechanisms.LEDController;
-//import org.firstinspires.ftc.teamcode.mechanisms.BallDetector;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 
 import com.pedropathing.follower.Follower;
@@ -33,10 +33,10 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public static double RESET_H_DEG = 90;
 
     public static double P = 0.02;
-    public static double D = 0.0009;
+    public static double D = 0.0018;
     public static double F = 0.026;
-    public static double D_FILTER_GAIN = 0.7;
-    public static double HEADING_TOLERANCE_DEG = 1.0;
+    public static double D_FILTER_GAIN = 0;
+    public static double HEADING_TOLERANCE_DEG = 0.0;
 
 
 
@@ -45,7 +45,10 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     private ArcadeDrive arcade = new ArcadeDrive();
     private OdomAimingSystem aimingSystem;
     //private LEDController leds = new LEDController();
-    //private BallDetector ballDetector = new BallDetector();
+    private DcMotorEx frontLeft;
+    private DcMotorEx frontRight;
+    private DcMotorEx backLeft;
+    private DcMotorEx backRight;
 
     private boolean fastMode = false;
     private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false;
@@ -60,25 +63,35 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         return v * v * v;
     }
 
+    private void cacheDriveMotors() {
+        frontLeft = hardwareMap.get(DcMotorEx.class, "fL");
+        frontRight = hardwareMap.get(DcMotorEx.class, "fR");
+        backLeft = hardwareMap.get(DcMotorEx.class, "bL");
+        backRight = hardwareMap.get(DcMotorEx.class, "bR");
+    }
+
+    private void enforceDriveBrakeMode() {
+        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+    }
+
     @Override
     public void init() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
+        cacheDriveMotors();
         follower = Constants.createFollower(hardwareMap);
-
-        hardwareMap.get(DcMotor.class, "fL").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        hardwareMap.get(DcMotor.class, "fR").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        hardwareMap.get(DcMotor.class, "bL").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        hardwareMap.get(DcMotor.class, "bR").setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        enforceDriveBrakeMode();
 
         aimingSystem = new OdomAimingSystem(follower);
         arcade.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
+        enforceDriveBrakeMode();
 
         //leds.initHardware(hardwareMap);
         //leds.initTele();
-
-        //ballDetector.init(hardwareMap);
 
         follower.setStartingPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
 
@@ -87,6 +100,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     @Override
     public void start() {
         follower.startTeleopDrive();
+        enforceDriveBrakeMode();
         //leds.normal();
         resetRuntime(); // Resets the OpMode timer
     }
@@ -94,11 +108,8 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
 
     @Override
     public void loop() {
+        enforceDriveBrakeMode();
         follower.update();
-
-        //ballDetector.update();
-        //int balls = ballDetector.getBallCount();
-        //leds.setBallCount(balls);
 
         Pose currentPose = follower.getPose();
 
@@ -170,18 +181,11 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         // --- DRIVE ---
         double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
 
-//        follower.setTeleOpDrive(
-//                -expo(gamepad1.left_stick_y) * scale,
-//                -expo(gamepad1.left_stick_x) * scale,
-//                r,
-//                true
-//        );
-
         follower.setTeleOpDrive(
-                -gamepad1.left_stick_y,
-                -gamepad1.left_stick_x,
-                -gamepad1.right_stick_x,
-                true // Robot Centric
+                -expo(gamepad1.left_stick_y) * scale,
+                -expo(gamepad1.left_stick_x) * scale,
+                r,
+                true
         );
 
         // --- INTAKE ---
@@ -210,7 +214,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         arcade.startBrodskyBelt(brodOn);
 
         // --- OUTTAKE ---
-        outtake.setTVelocity(0);//aim.targetOuttakeSpeed
+        outtake.setTVelocity(aim.targetOuttakeSpeed);//aim.targetOuttakeSpeed
         outtake.update();
 
 
@@ -234,13 +238,12 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
         // --- TELEMETRY ---
         if (System.currentTimeMillis() - lastTelemetryTime > 100) {
             telemetry.addData(">> MODE", fastMode ? "FAST" : "NORMAL");
+            telemetry.addData("Drive Zero Power", frontLeft.getZeroPowerBehavior());
             telemetry.addData("Heading Error", (int) aim.error);
             telemetry.addData("Dist to Goal", (int) aim.distance);
             telemetry.addData("Target Speed", (int) aim.targetOuttakeSpeed);
             telemetry.addData("Actual Speed", (int) outtake.avgOuttakeVelocity());
             telemetry.addData("Outtake Dif", outtake.outtakeDif());
-
-            //ballDetector.telemetry(telemetry);
 
             telemetry.update();
             lastTelemetryTime = System.currentTimeMillis();
@@ -253,6 +256,7 @@ public class DriveTeleOp2ControllersOdometry extends OpMode {
     public void stop() {
         // Force everything to zero power when the stop button is pressed
         follower.setTeleOpDrive(0, 0, 0);
+        enforceDriveBrakeMode();
         arcade.setIntakePower(0);
         arcade.setTransferPower(0);
         outtake.setTVelocity(0);

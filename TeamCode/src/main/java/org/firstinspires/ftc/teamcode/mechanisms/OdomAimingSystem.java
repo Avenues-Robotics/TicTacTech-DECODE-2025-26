@@ -10,7 +10,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @Config
 public class OdomAimingSystem {
     public static double TARGET_X = 144.0;
-    public static double TARGET_Y = 126.0;
+    public static double TARGET_Y = 144.0;
 
     // Match the known-good teleop behavior until a measured model replaces it.
     public static double PROJECTILE_AIR_TIME = 0.42;

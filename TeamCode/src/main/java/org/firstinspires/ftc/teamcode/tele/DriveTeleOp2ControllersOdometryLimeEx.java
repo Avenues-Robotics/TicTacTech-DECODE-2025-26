@@ -5,13 +5,11 @@ import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.math.Vector;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
@@ -55,6 +53,7 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
     private OdomAimingSystem aimingSystem;
     private LEDController leds = new LEDController();
     private Limelight3A limelight;
+    private boolean limelightAvailable = false;
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
@@ -85,16 +84,23 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
         aimingSystem = new OdomAimingSystem(follower);
 
-        // IMPORTANT: Make sure ArcadeDrive no longer initializes fL, fR, bL, bR
         arcade.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
 
         leds.initHardware(hardwareMap);
         leds.initTele();
 
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.setPollRateHz(100);
-        limelight.pipelineSwitch(PoseStorage.isBlue ? 1 : 0);
+        try {
+            limelight = hardwareMap.get(Limelight3A.class, "limelight");
+            limelight.setPollRateHz(100);
+            limelight.pipelineSwitch(PoseStorage.isBlue ? 1 : 0);
+            limelightAvailable = true;
+        } catch (IllegalArgumentException e) {
+            limelight = null;
+            limelightAvailable = false;
+            telemetry.addLine("Limelight not found; running odometry-only teleop.");
+            telemetry.update();
+        }
 
         if (!(PoseStorage.currentPose.getX() == 1000)) {
             follower.setStartingPose(new Pose(
@@ -109,7 +115,9 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
         waitForStart();
 
         follower.startTeleopDrive();
-        limelight.start();
+        if (limelightAvailable) {
+            limelight.start();
+        }
         leds.normal();
 
         lastTime = System.nanoTime();
@@ -118,7 +126,6 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
             follower.update();
             Pose currentPose = follower.getPose();
-            Vector robotVel = follower.getVelocity();
 
             // ---------------- RE-ZERO ODOM ----------------
             if (gamepad1.options && !optionsHeld) {
@@ -144,7 +151,7 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
             double visionY = 0.0;
             double visionJump = 0.0;
 
-            if (USE_VISION_FUSION) {
+            if (USE_VISION_FUSION && limelightAvailable) {
                 // MT2 needs a highly accurate heading. Pinpoint delivers this.
                 limelight.updateRobotOrientation(Math.toDegrees(currentPose.getHeading()));
 
@@ -284,10 +291,22 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
             telemetry.addData("Dist to Goal", aim.distance);
             telemetry.addData("Target Speed", aim.targetOuttakeSpeed);
             telemetry.addData("Actual Speed", outtake.avgOuttakeVelocity());
+            telemetry.addData("Limelight", limelightAvailable ? "ONLINE" : "OFFLINE");
             telemetry.addData("Vision Used", visionUsed);
             telemetry.addData("Visible Tags", visibleTags);
 
             telemetry.update();
+        }
+
+        follower.setTeleOpDrive(0, 0, 0, true);
+        arcade.setIntakePower(0);
+        arcade.setTransferPower(0);
+        arcade.startBrodskyBelt(false);
+        outtake.setTVelocity(0);
+        outtake.update();
+
+        if (limelightAvailable) {
+            limelight.stop();
         }
     }
 }
