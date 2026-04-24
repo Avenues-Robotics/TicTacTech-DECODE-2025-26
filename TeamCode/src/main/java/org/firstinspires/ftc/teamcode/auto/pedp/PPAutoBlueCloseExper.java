@@ -69,6 +69,7 @@ public class PPAutoBlueCloseExper extends OpMode {
     public void loop() {
         follower.update();
         outtake.update();
+        savePose();
 
         robot.setIntakePower(1.0);
         outtake.setTVelocity(OUTTAKE_SPEED);
@@ -267,7 +268,12 @@ public class PPAutoBlueCloseExper extends OpMode {
 
     @Override
     public void stop() {
+        savePose();
+    }
+
+    private void savePose() {
         PoseStorage.currentPose = follower.getPose();
-        PoseStorage.isBlue = false;
+        PoseStorage.isBlue = !IS_RED;
+        PoseStorage.fromAuto = true;
     }
 }

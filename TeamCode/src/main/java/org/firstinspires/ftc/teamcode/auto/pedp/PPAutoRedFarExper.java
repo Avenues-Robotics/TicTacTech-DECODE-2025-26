@@ -69,9 +69,10 @@ public class PPAutoRedFarExper extends OpMode {
     public void loop() {
         follower.update();
         outtake.update();
+        savePose();
 
         robot.setIntakePower(1.0);
-        outtake.setTVelocity(-OUTTAKE_SPEED);
+        outtake.setTVelocity(OUTTAKE_SPEED);
 
         switch (pathState) {
             case PATH_1:
@@ -251,7 +252,12 @@ public class PPAutoRedFarExper extends OpMode {
 
     @Override
     public void stop() {
+        savePose();
+    }
+
+    private void savePose() {
         PoseStorage.currentPose = follower.getPose();
         PoseStorage.isBlue = !IS_RED;
+        PoseStorage.fromAuto = true;
     }
 }

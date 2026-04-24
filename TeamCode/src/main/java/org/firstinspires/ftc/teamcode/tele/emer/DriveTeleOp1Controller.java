@@ -3,249 +3,298 @@ package org.firstinspires.ftc.teamcode.tele.emer;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.VoltageSensor;
-import org.firstinspires.ftc.teamcode.memory.PoseStorage;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
+import org.firstinspires.ftc.teamcode.mechanisms.LEDController;
+import org.firstinspires.ftc.teamcode.mechanisms.OdomAimingSystem;
+import org.firstinspires.ftc.teamcode.memory.PoseStorage;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Config
 @TeleOp(name = "DriveTeleOp1Controller", group = "Main")
-public class DriveTeleOp1Controller extends LinearOpMode {
+public class DriveTeleOp1Controller extends OpMode {
+    private static final double RED_TARGET_X = 144.0;
+    private static final double BLUE_TARGET_X = 0.0;
 
     public static double FAST_MODE_SPEED = 1.0;
-    public static double NORMAL_MODE_SPEED = 0.4;
+    public static double NORMAL_MODE_SPEED = 0.45;
+    public static double DEADZONE_CUTOFF = 0.01;
 
-    public static double INTAKE_SPEED = 1.0;
-    public static double OUTTAKE_SPEED = 610;
-    public static double DRAWBACK_POWER = 0.3;
+    public static double RESET_X = 8.25;
+    public static double RESET_X_ALT = 137.75;
+    public static double RESET_Y = 9;
+    public static double RESET_H_DEG = 90;
 
-    // POI enabled: tx/ty already point at the backboard aim point.
-    // Camera LEFT => negative (inches)
-    public static double LIMELIGHT_OFFSET = 6;
+    public static double P = 0.02;
+    public static double D = 0.0018;
+    public static double F = 0.026;
+    public static double D_FILTER_GAIN = 0;
+    public static double HEADING_TOLERANCE_DEG = 0.0;
+    public static boolean USE_LEDS = false;
 
-    // PIDF Constants
-    public static double P = 0.025;
-    public static double D = 0.0;
-    public static double F = 0.0008;
-
-    // Low Pass Filter Gain
-    public static double GAIN = 0.8;
-
-    // --- Simple velocity compensation ---
-    // Strafe compensation gain: degrees of extra turn per (ticks/sec) of strafe-velocity estimate.
-    // Start VERY small, e.g. 0.00002 and tune on the field.
-    public static double STRAFE_COMP_K = 0.0025;
-
-    // Smooth the measured strafe velocity (0..1). Higher = smoother.
-    public static double STRAFE_VEL_FILTER_GAIN = 0.7;
-
-    public static double FARFLYWHEELSPEED = 640;
-    public static double CLOSEFLYWHEELSPEED = 580;
-
-    // Clamp compensation so it can't go insane
-    public static double STRAFE_COMP_MAX_DEG = 90;
-    // -----------------------------------
-
-    private Limelight3A limelight;
-    private DualOuttakeEx outtake = new DualOuttakeEx();
-    private ArcadeDrive robot = new ArcadeDrive();
+    private Follower follower;
+    private final DualOuttakeEx outtake = new DualOuttakeEx();
+    private final ArcadeDrive arcade = new ArcadeDrive();
+    private OdomAimingSystem aimingSystem;
+    private LEDController leds;
+    private DcMotorEx frontLeft;
+    private DcMotorEx frontRight;
+    private DcMotorEx backLeft;
+    private DcMotorEx backRight;
 
     private boolean fastMode = false;
     private boolean triggerHeld = false;
-    private boolean isBlueAlliance;
-
-    private double tx = 0.0;
-    private double ty = 0.0;
-    private double ta = 0.0;
-    private boolean hasTarget = false;
-
-    private double res_plus = 0.0;
-    private double filtered_res_plus = 0.0;
+    private boolean bumperHeld = false;
+    private boolean optionsHeld = false;
+    private boolean backHeld = false;
+    private boolean yHeld = false;
+    private boolean brodOn = false;
+    private boolean isRedAlliance = true;
 
     private double lastError = 0.0;
+    private double lastFilteredDerivative = 0.0;
     private long lastTime = 0L;
 
-    // For plotting intake voltage (estimated)
-    private VoltageSensor batterySensor;
-    private double intakeCommand = 0.0;
+    private long lastTelemetryTime = 0;
 
-    // Strafe velocity filtering
-    private double filteredStrafeVel = 0.0;
-
-    private double expo(double v) { return v * v * v; }
-
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
+    private double expo(double v) {
+        return v * v * v;
     }
 
-    public double getDistanceFromTag(double ta) {
-        // If the target is too small to be reliable, return a default or 0
-        // Limelight TA is usually 0-100. 0.05 is a tiny sliver of the screen.
-        if (ta <= 0.02){
-            return 10000;
-        }
+    private void cacheDriveMotors() {
+        frontLeft = hardwareMap.get(DcMotorEx.class, "fL");
+        frontRight = hardwareMap.get(DcMotorEx.class, "fR");
+        backLeft = hardwareMap.get(DcMotorEx.class, "bL");
+        backRight = hardwareMap.get(DcMotorEx.class, "bR");
+    }
 
-        double a = 68.1;
-        double b = -0.513;
-        return a * (Math.pow(ta, b));
+    private void enforceDriveBrakeMode() {
+        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
     @Override
-    public void runOpMode() {
+    public void init() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        robot.init(hardwareMap, false);
+        cacheDriveMotors();
+        follower = Constants.createFollower(hardwareMap);
+        enforceDriveBrakeMode();
+
+        aimingSystem = new OdomAimingSystem(follower);
+        arcade.init(hardwareMap, false);
         outtake.init(hardwareMap, telemetry);
+        enforceDriveBrakeMode();
 
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.setPollRateHz(100);
-        limelight.start();
-
-        batterySensor = hardwareMap.voltageSensor.iterator().next();
-
-        isBlueAlliance = PoseStorage.isBlue;
-        if (isBlueAlliance){
-            limelight.pipelineSwitch(1);
-        }
-        else{
-            limelight.pipelineSwitch(0);
+        if (USE_LEDS) {
+            leds = new LEDController();
+            leds.initHardware(hardwareMap);
+            leds.initTele();
         }
 
-        waitForStart();
+        Pose initialPose = new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG));
+        if (PoseStorage.fromAuto) {
+            initialPose = PoseStorage.currentPose;
+            isRedAlliance = !PoseStorage.isBlue;
+            PoseStorage.fromAuto = false;
+        }
 
-        //robot.startBrodskyBelt();
+        OdomAimingSystem.TARGET_X = isRedAlliance ? RED_TARGET_X : BLUE_TARGET_X;
+        follower.setStartingPose(initialPose);
+    }
 
-        while (opModeIsActive()) {
+    @Override
+    public void init_loop() {
+        if (gamepad1.right_bumper) {
+            isRedAlliance = true;
+        } else if (gamepad1.left_bumper) {
+            isRedAlliance = false;
+        }
 
-            // Fast Mode Toggle
-            if (gamepad1.a && !triggerHeld) {
-                fastMode = !fastMode;
-                triggerHeld = true;
+        OdomAimingSystem.TARGET_X = isRedAlliance ? RED_TARGET_X : BLUE_TARGET_X;
+
+        telemetry.addLine("Alliance Select");
+        telemetry.addLine("RB = Red Alliance");
+        telemetry.addLine("LB = Blue Alliance");
+        telemetry.addData("Selected Alliance", isRedAlliance ? "RED" : "BLUE");
+        telemetry.addData("Odom Target X", OdomAimingSystem.TARGET_X);
+        telemetry.update();
+    }
+
+    @Override
+    public void start() {
+        OdomAimingSystem.TARGET_X = isRedAlliance ? RED_TARGET_X : BLUE_TARGET_X;
+        follower.startTeleopDrive();
+        enforceDriveBrakeMode();
+        if (USE_LEDS) {
+            leds.normal();
+        }
+        resetRuntime();
+    }
+
+    @Override
+    public void loop() {
+        enforceDriveBrakeMode();
+        follower.update();
+
+        Pose currentPose = follower.getPose();
+
+        if (gamepad1.options && !optionsHeld) {
+            follower.setPose(new Pose(RESET_X_ALT, RESET_Y, Math.toRadians(RESET_H_DEG)));
+            optionsHeld = true;
+        } else if (!gamepad1.options) {
+            optionsHeld = false;
+        }
+
+        if (gamepad1.back && !backHeld) {
+            follower.setPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
+            backHeld = true;
+        } else if (!gamepad1.back) {
+            backHeld = false;
+        }
+
+        if (gamepad1.right_trigger > 0.1 && !triggerHeld) {
+            fastMode = !fastMode;
+            triggerHeld = true;
+        }
+        if (gamepad1.right_trigger < 0.1) {
+            triggerHeld = false;
+        }
+
+        OdomAimingSystem.AimResult aim = aimingSystem.calculateAim(currentPose);
+        boolean locked = Math.abs(aim.error) < HEADING_TOLERANCE_DEG;
+
+        double r;
+        if (gamepad1.left_trigger >= 0.1) {
+            if (lastTime == 0) {
+                lastTime = System.nanoTime();
+                lastError = aim.error;
             }
-            if (!gamepad1.a) triggerHeld = false;
 
-            // Pipeline Switching
-            if (gamepad1.dpad_right) { isBlueAlliance = false; limelight.pipelineSwitch(0); }
-            if (gamepad1.dpad_left)  { isBlueAlliance = true;  limelight.pipelineSwitch(1); }
-
-            double y = expo(gamepad1.left_stick_y);
-            double x = expo(-gamepad1.left_stick_x);
-
-
-
-            // --- Strafe velocity estimate (ticks/sec) ---
-            // Using the common mecanum approximation:
-            // +x strafe tends to increase FL+BR and decrease FR+BL (or vice versa depending on directions)
-            // This matches what you had earlier.
-            double measuredStrafeVel =
-                    (robot.getFl().getVelocity() + robot.getBr().getVelocity()) -
-                            (robot.getFr().getVelocity() + robot.getBl().getVelocity());
-
-            // Low-pass filter to reduce jitter
-            filteredStrafeVel = (STRAFE_VEL_FILTER_GAIN * filteredStrafeVel) +
-                    ((1.0 - STRAFE_VEL_FILTER_GAIN) * measuredStrafeVel);
-            // ------------------------------------------
-
-            LLResult result = limelight.getLatestResult();
-
-            hasTarget = false;
-
-            if (result != null && result.isValid()) {
-                // Camera upside down => keep your sign flips
-                tx = -result.getTx();
-                ty = -result.getTy();
-                ta = result.getTa();
-
-                hasTarget = true;
-
-                // Distance model ONLY for camera offset correction
-                //double distance = 13.7795 / (Math.tan(Math.toRadians(ty))); //UPDATE: IN NEW VERSION WILL USE TA
-                double distance = getDistanceFromTag(result.getTa());
-
-                double lateral_camera = distance * Math.tan(Math.toRadians(tx)); // inches
-                double lateral_robotCenter = lateral_camera - LIMELIGHT_OFFSET;  // inches
-                res_plus = Math.toDegrees(Math.atan(lateral_robotCenter / distance)); // deg
-
-                double strafeCompDeg = clamp(filteredStrafeVel * STRAFE_COMP_K,
-                        -STRAFE_COMP_MAX_DEG, STRAFE_COMP_MAX_DEG);
-
-                res_plus += strafeCompDeg;
-
-                // Filter Limelight aiming jitter
-                filtered_res_plus = (GAIN * res_plus) + ((1 - GAIN) * filtered_res_plus);
-
-                // Flywheel logic
-                OUTTAKE_SPEED = (distance > 103) ? FARFLYWHEELSPEED : CLOSEFLYWHEELSPEED;
-            } else {
-                // Optional: Zero out the error so the PID doesn't "jump"
-                // when a target is re-acquired
-                res_plus = 0;
-                filtered_res_plus = 0;
-            }
-
-            double r;
-            if (gamepad1.left_trigger >= 0.1 && hasTarget) {
+            if (Math.abs(aim.error) > HEADING_TOLERANCE_DEG) {
                 long currentTime = System.nanoTime();
                 double deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
 
-                double error = filtered_res_plus;
-                double derivative = 0.0;
+                double rawDerivative = (deltaTime > 0)
+                        ? (aim.error - lastError) / deltaTime
+                        : 0;
 
-                if (deltaTime > 0 && deltaTime < 0.1) {
-                    derivative = (error - lastError) / deltaTime;
-                }
+                double filteredDerivative =
+                        (D_FILTER_GAIN * lastFilteredDerivative)
+                                + ((1.0 - D_FILTER_GAIN) * rawDerivative);
 
-                double power = (P * error) + (D * derivative) + (Math.copySign(F, error));
-                r = -power;
+                r = (P * aim.error)
+                        + (D * filteredDerivative)
+                        + (Math.signum(aim.error) * F);
 
-                lastError = error;
+                lastError = aim.error;
+                lastFilteredDerivative = filteredDerivative;
                 lastTime = currentTime;
             } else {
-                r = expo(-gamepad1.right_stick_x);
-                lastError = 0.0;
-                lastTime = System.nanoTime();
-                filtered_res_plus = 0.0;
+                r = 0;
             }
+        } else {
+            r = expo(-gamepad1.right_stick_x);
+            lastError = 0.0;
+            lastFilteredDerivative = 0.0;
+            lastTime = 0;
+        }
 
-            double scale = FAST_MODE_SPEED;
+        double scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
+        follower.setTeleOpDrive(
+                -expo(gamepad1.left_stick_y) * scale,
+                -expo(gamepad1.left_stick_x) * scale,
+                r,
+                true
+        );
 
-            if (hasTarget){
-                fastMode = true;
-                scale = FAST_MODE_SPEED;
+        arcade.setIntakePower(gamepad1.x ? -1.0 : 1.0);
+
+        boolean shooting = false;
+        if (gamepad1.left_bumper) {
+            arcade.setTransferPower(-1.0);
+            shooting = true;
+        } else if (gamepad1.dpad_up) {
+            arcade.setTransferPower(1.0);
+        } else {
+            arcade.setTransferPower(0.3);
+        }
+
+        if (gamepad1.y && !yHeld) {
+            brodOn = !brodOn;
+            yHeld = true;
+        } else if (!gamepad1.y) {
+            yHeld = false;
+        }
+
+        if (gamepad1.right_bumper && !bumperHeld) {
+            isRedAlliance = true;
+            OdomAimingSystem.TARGET_X = RED_TARGET_X;
+            bumperHeld = true;
+        } else if (gamepad1.left_bumper && !bumperHeld) {
+            isRedAlliance = false;
+            OdomAimingSystem.TARGET_X = BLUE_TARGET_X;
+            bumperHeld = true;
+        } else if (!gamepad1.right_bumper && !gamepad1.left_bumper) {
+            bumperHeld = false;
+        }
+
+        arcade.startBrodskyBelt(brodOn);
+
+        outtake.setTVelocity(aim.targetOuttakeSpeed);
+        outtake.update();
+
+        if (USE_LEDS) {
+            if (getRuntime() > 90) {
+                leds.endgame();
+            } else if (shooting) {
+                leds.shooting();
+            } else if (gamepad1.left_trigger >= 0.1) {
+                if (locked && outtake.isAtVelocity(20)) {
+                    leds.locked();
+                } else {
+                    leds.aiming();
+                }
+            } else {
+                leds.normal();
             }
-            else {
-                scale = fastMode ? FAST_MODE_SPEED : NORMAL_MODE_SPEED;
-            }
-            robot.drive(y, x, r, scale);
+        }
 
-            // Intake and Transfer Logic
-            intakeCommand = (gamepad1.x) ? -INTAKE_SPEED : INTAKE_SPEED;
-            robot.setIntakePower(intakeCommand);
-
-            if (gamepad1.right_trigger >= 0.1) robot.setTransferPower(-1.0);
-            else if (gamepad1.right_bumper) robot.setTransferPower(1.0);
-            else robot.setTransferPower(DRAWBACK_POWER);
-
-            outtake.setTVelocity(-OUTTAKE_SPEED);
-            outtake.update();
-
-            // Dashboard plotting: voltage + estimated intake motor voltage
-            double batteryV = batterySensor.getVoltage();
-            double intakeEstimatedV = batteryV * Math.abs(intakeCommand);
-
-            telemetry.addData("Target", hasTarget);
-            if (result != null) {
-                telemetry.addData("distance", getDistanceFromTag(result.getTa()));
-                telemetry.addData("tx", result.getTx());
-            }
-
-
+        if (System.currentTimeMillis() - lastTelemetryTime > 100) {
+            telemetry.addData(">> MODE", fastMode ? "FAST" : "NORMAL");
+            telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
+            telemetry.addData("Drive Zero Power", frontLeft.getZeroPowerBehavior());
+            telemetry.addData("Heading Error", (int) aim.error);
+            telemetry.addData("Dist to Goal", (int) aim.distance);
+            telemetry.addData("Target Speed", (int) aim.targetOuttakeSpeed);
+            telemetry.addData("Actual Speed", (int) outtake.avgOuttakeVelocity());
+            telemetry.addData("Outtake Dif", outtake.outtakeDif());
+            telemetry.addData("Brod Belt", brodOn);
             telemetry.update();
+            lastTelemetryTime = System.currentTimeMillis();
+        }
+
+    }
+
+    @Override
+    public void stop() {
+        follower.setTeleOpDrive(0, 0, 0);
+        enforceDriveBrakeMode();
+        arcade.setIntakePower(0);
+        arcade.setTransferPower(0);
+        arcade.startBrodskyBelt(false);
+        outtake.setTVelocity(0);
+        if (USE_LEDS) {
+            leds.normal();
         }
     }
 }

@@ -17,8 +17,8 @@ public class OdomAimingSystem {
     public static double MIN_OUTTAKE_SPEED = 0;
     public static double MAX_OUTTAKE_SPEED = 6000;
 
-    public static double Y_INTERCEPT = 584;
-    public static double COEFF_LINEAR = -1.09;
+    public static double Y_INTERCEPT = 437;
+    public static double COEFF_LINEAR = 1.66;
     public static double COEFF_QUAD = 0.0119;
 
     public static class AimResult {
@@ -63,9 +63,8 @@ public class OdomAimingSystem {
     }
 
     private double computeOuttakeSpeed(double distance) {
-        double raw = Y_INTERCEPT
-                + (COEFF_LINEAR * distance)
-                + (COEFF_QUAD * distance * distance);
-        return Math.max(MIN_OUTTAKE_SPEED, Math.min(MAX_OUTTAKE_SPEED, raw));
+        double raw = (COEFF_LINEAR * distance) + Y_INTERCEPT;
+
+        return raw;
     }
 }

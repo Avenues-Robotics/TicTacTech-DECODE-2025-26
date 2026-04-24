@@ -22,11 +22,11 @@ public class DualOuttakeEx {
     public static double TARGET_VELOCITY = 0;
 
     /** Raw ticks/s velocity gain from VelocityPIDFTuner final output. */
-    public static double P = 0.0;
-    public static double I = 0.0;
-    public static double D = 0.0;
+    public static double P = 0.03;
+    public static double I = 0.0001;
+    public static double D = 0;
     /** Feedforward in motor-power per ticks/s from VelocityPIDFTuner final output. */
-    public static double F = 0.0;
+    public static double F = 0.000362;
     /** Matches the tuner's default derivative filter unless you have a reason to change it. */
     public static double DERIVATIVE_ALPHA = 0.2;
 

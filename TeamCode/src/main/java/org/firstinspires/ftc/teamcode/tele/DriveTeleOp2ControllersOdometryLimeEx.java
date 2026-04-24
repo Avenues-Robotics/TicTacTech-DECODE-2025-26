@@ -7,9 +7,11 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
 import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
@@ -18,6 +20,7 @@ import org.firstinspires.ftc.teamcode.mechanisms.OdomAimingSystem;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+@Disabled
 @Config
 @TeleOp(name = "DriveTeleOp2ControllersOdometryLimeEx", group = "Main")
 public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
@@ -41,7 +44,9 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
     // ---------------- LIMELIGHT FUSION ----------------
     public static boolean USE_VISION_FUSION = true;
+    public static boolean BLEND_VISION_HEADING = false;
     public static double VISION_ALPHA_XY = 0.05;
+    public static double VISION_ALPHA_H = 0.02;
     public static double MAX_VISION_JUMP = 12.0;
     public static int MIN_TAGS_FOR_BLEND = 1;
     public static double HIGH_CONFIDENCE_ALPHA_XY = 0.08;
@@ -71,6 +76,12 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
     private static double clamp(double v, double lo, double hi) {
         return Math.max(lo, Math.min(hi, v));
+    }
+
+    private double angleWrap(double radians) {
+        while (radians > Math.PI) radians -= 2.0 * Math.PI;
+        while (radians < -Math.PI) radians += 2.0 * Math.PI;
+        return radians;
     }
 
     private double applyDeadzone(double v, double dz) {
@@ -149,6 +160,7 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
             int visibleTags = 0;
             double visionX = 0.0;
             double visionY = 0.0;
+            double visionHDeg = 0.0;
             double visionJump = 0.0;
 
             if (USE_VISION_FUSION && limelightAvailable) {
@@ -167,6 +179,7 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
                         visionX = mt2Pose.getPosition().x;
                         visionY = mt2Pose.getPosition().y;
+                        visionHDeg = mt2Pose.getOrientation().getYaw(AngleUnit.DEGREES);
 
                         double dx = visionX - currentPose.getX();
                         double dy = visionY - currentPose.getY();
@@ -184,9 +197,16 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
                             double fusedX = currentPose.getX() + alphaXY * dx;
                             double fusedY = currentPose.getY() + alphaXY * dy;
+                            double fusedHeading = currentPose.getHeading();
 
-                            // Apply fused X/Y but explicitly trust Pinpoint for heading
-                            follower.setPose(new Pose(fusedX, fusedY, currentPose.getHeading()));
+                            if (BLEND_VISION_HEADING) {
+                                double visionHeading = Math.toRadians(visionHDeg);
+                                double dHeading = angleWrap(visionHeading - currentPose.getHeading());
+                                double alphaH = clamp(VISION_ALPHA_H, 0.0, 1.0);
+                                fusedHeading = currentPose.getHeading() + alphaH * dHeading;
+                            }
+
+                            follower.setPose(new Pose(fusedX, fusedY, fusedHeading));
                             currentPose = follower.getPose(); // Refresh local copy
                             visionUsed = true;
                         }
@@ -285,8 +305,10 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
 
             // ---------------- TELEMETRY ----------------
             telemetry.addData(">> MODE", fastMode ? "FAST" : "NORMAL");
-            telemetry.addData("Pose X/Y", "%.1f / %.1f", currentPose.getX(), currentPose.getY());
-            telemetry.addData("Pose H Deg", Math.toDegrees(currentPose.getHeading()));
+            telemetry.addData("Odom Pose", "(%.1f, %.1f, %.1f deg)",
+                    currentPose.getX(), currentPose.getY(), Math.toDegrees(currentPose.getHeading()));
+            telemetry.addData("Limelight Pose", "(%.1f, %.1f, %.1f deg)",
+                    visionX, visionY, visionHDeg);
             telemetry.addData("Heading Error", aim.error);
             telemetry.addData("Dist to Goal", aim.distance);
             telemetry.addData("Target Speed", aim.targetOuttakeSpeed);
@@ -294,6 +316,8 @@ public class DriveTeleOp2ControllersOdometryLimeEx extends LinearOpMode {
             telemetry.addData("Limelight", limelightAvailable ? "ONLINE" : "OFFLINE");
             telemetry.addData("Vision Used", visionUsed);
             telemetry.addData("Visible Tags", visibleTags);
+            telemetry.addData("Blend Heading", BLEND_VISION_HEADING);
+            telemetry.addData("Vision Jump", "%.2f", visionJump);
 
             telemetry.update();
         }
