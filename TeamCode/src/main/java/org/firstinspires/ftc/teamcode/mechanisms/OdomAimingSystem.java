@@ -54,8 +54,8 @@ public class OdomAimingSystem {
         double headingOffsetDeg = Math.toDegrees(Math.atan2(lateralShift, result.distance));
 
         result.finalHeading = Math.toDegrees(targetAngleFieldRad) + headingOffsetDeg;
-        result.error = AngleUnit.normalizeDegrees(
-                result.finalHeading - Math.toDegrees(currentPose.getHeading())
+        result.error = AngleUnit.normalizeRadians(
+                Math.toRadians(result.finalHeading) - currentPose.getHeading()
         );
         result.targetOuttakeSpeed = computeOuttakeSpeed(result.distance);
 

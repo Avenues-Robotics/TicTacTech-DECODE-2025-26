@@ -37,6 +37,4 @@ android {
 
 dependencies {
     implementation project(':FtcRobotController')
-    implementation "com.acmerobotics.dashboard:dashboard:0.5.1"
-    implementation "com.github.PIDPilot:ftc:v1.0.3"
 }
