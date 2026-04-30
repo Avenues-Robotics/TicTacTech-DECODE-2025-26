@@ -19,9 +19,9 @@ public class Constants {
             .mass(10.51483) // make sure to retune double check
             .forwardZeroPowerAcceleration(-31.427000757540114)
             .lateralZeroPowerAcceleration(-60.965944737115656)
-            .translationalPIDFCoefficients(new PIDFCoefficients(0.093, 0, 0.013, 0.027))
-            .headingPIDFCoefficients(new PIDFCoefficients(0.87,0,0.02,0.026))
-            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.2,0,0,0,0)) // try slightly increasing D and see if it helps with path overshoot
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.093, 0, 0.013, 0.03))
+            .headingPIDFCoefficients(new PIDFCoefficients(0.87,0,0.04,0.03))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.2,0,0.002,0.001,0.03)) // try slightly increasing D and see if it helps with path overshoot
             .centripetalScaling(0.01)
             ;
     public static MecanumConstants driveConstants = new MecanumConstants()
@@ -49,7 +49,7 @@ public class Constants {
             .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD) //do tuning and check if the x goes up or down
             .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD); //do tuning and check if the y goes up or down
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 0.9, 0.9);
+    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 0.9, 0.95);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)

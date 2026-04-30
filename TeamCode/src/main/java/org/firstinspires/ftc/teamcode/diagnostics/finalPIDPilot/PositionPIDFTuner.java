@@ -297,7 +297,7 @@ public class PositionPIDFTuner {
         controller.integralSumMax = Math.abs(controller.getKI()) > EPSILON
             ? integralSumMax / Math.abs(controller.getKI())
             : integralSumMax;
-        controller.derivativeAlpha = derivativeAlpha;
+        controller.derivativeAlpha = clip(derivativeAlpha, 0.0, 1.0);
     }
 
     private double readPositionMeasurement() {

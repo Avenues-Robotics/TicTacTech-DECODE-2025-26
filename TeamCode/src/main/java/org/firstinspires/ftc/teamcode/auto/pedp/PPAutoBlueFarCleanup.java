@@ -29,13 +29,14 @@ public class PPAutoBlueFarCleanup extends OpMode {
     public static boolean IS_RED = false;
     public static double FIELD_SIZE = 144.0;
 
-    public static double OUTTAKE_SPEED = 620;
+    public static double OUTTAKE_SPEED = 660;
     public static double DRAWBACK_POWER = 0.6;
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1.5;
     public static double PAUSE_BEFORE_INTAKE = 0.5;
     public static double SHOOT_TIME = 1.9;
+    public static int CLEANUP_CYCLES = 2;
 
     public enum PathState {
         PATH_1, SHOOT_1,
@@ -47,6 +48,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
     private PathState pathState;
     private boolean hasArrived = false;
+    private int cleanupCyclesCompleted = 0;
 
     @Override
     public void init() {
@@ -56,6 +58,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
         follower = Constants.createFollower(hardwareMap);
         paths = new Paths(follower);
+        cleanupCyclesCompleted = 0;
 
         follower.setPose(paths.mStartPose);
         setPathState(PathState.PATH_1);
@@ -126,7 +129,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
                 break;
 
             case SHOOT_3:
-                if (performShootSequence(PathState.PATH_8)) follower.followPath(paths.Path8);
+                if (pathTimer.getElapsedTimeSeconds() >= SHOOT_TIME) startCleanupOrPark();
                 break;
 
             case PATH_8: // Cleanup Sweep
@@ -141,7 +144,10 @@ public class PPAutoBlueFarCleanup extends OpMode {
                 break;
 
             case SHOOT_4: // Final Score
-                if (performShootSequence(PathState.PATH_10)) follower.followPath(paths.Path10);
+                if (pathTimer.getElapsedTimeSeconds() >= SHOOT_TIME) {
+                    cleanupCyclesCompleted++;
+                    startCleanupOrPark();
+                }
                 break;
 
             case PATH_10: // Parking
@@ -155,9 +161,16 @@ public class PPAutoBlueFarCleanup extends OpMode {
                 break;
         }
 
-        robot.setTransferPower(pathState.name().contains("SHOOT") ? SHOOT_POWER : DRAWBACK_POWER);
+        if (pathState == PathState.DONE) {
+            robot.setTransferPower(0);
+            robot.setIntakePower(0);
+            outtake.setTVelocity(0);
+        } else {
+            robot.setTransferPower(pathState.name().contains("SHOOT") ? SHOOT_POWER : DRAWBACK_POWER);
+        }
 
         telemetry.addData("State", pathState);
+        telemetry.addData("Cleanup Cycles", cleanupCyclesCompleted + "/" + getCleanupCycles());
         telemetry.update();
     }
 
@@ -177,6 +190,20 @@ public class PPAutoBlueFarCleanup extends OpMode {
             return true;
         }
         return false;
+    }
+
+    private void startCleanupOrPark() {
+        if (cleanupCyclesCompleted < getCleanupCycles()) {
+            setPathState(PathState.PATH_8);
+            follower.followPath(paths.Path8);
+        } else {
+            setPathState(PathState.PATH_10);
+            follower.followPath(paths.Path10);
+        }
+    }
+
+    private int getCleanupCycles() {
+        return Math.max(0, CLEANUP_CYCLES);
     }
 
     private void setPathState(PathState state) {
@@ -204,12 +231,12 @@ public class PPAutoBlueFarCleanup extends OpMode {
         public Paths(Follower follower) {
             // Blue Side Raw Coordinates
             Pose pStart = new Pose(56.000, 8.000, Math.toRadians(90));
-            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(110));
+            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(112));
             Pose pIntakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
-            Pose pIntakeDeep = new Pose(9.114, 35.254, Math.toRadians(0));
-            Pose pFarArea = new Pose(7.807, 29.000, Math.toRadians(90));
-            Pose pFarDeep = new Pose(8.089, 9.134, Math.toRadians(90));
-            Pose pCleanupEnd = new Pose(10.193, 8.945, Math.toRadians(0));
+            Pose pIntakeDeep = new Pose(16.114, 35.254, Math.toRadians(0));
+            Pose pFarArea = new Pose(16.807, 29.000, Math.toRadians(90));
+            Pose pFarDeep = new Pose(14.089, 9.134, Math.toRadians(90));
+            Pose pCleanupEnd = new Pose(9.193, 8.945, Math.toRadians(0));
             Pose pPark = new Pose(55.667, 36.695, Math.toRadians(90));
 
             mStartPose = mirrorPose(pStart);

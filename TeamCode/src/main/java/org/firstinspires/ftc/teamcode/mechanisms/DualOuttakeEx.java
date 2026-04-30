@@ -22,22 +22,21 @@ public class DualOuttakeEx {
     public static double TARGET_VELOCITY = 0;
 
     /** Raw ticks/s velocity gain from VelocityPIDFTuner final output. */
-    public static double P = 0.03;
-    public static double I = 0.0001;
+    public static double P = 0.05;
+    public static double I = 0.00001;
     public static double D = 0;
     /** Feedforward in motor-power per ticks/s from VelocityPIDFTuner final output. */
-    public static double F = 0.000362;
+    public static double F = 0.00039;
     /** Matches the tuner's default derivative filter unless you have a reason to change it. */
     public static double DERIVATIVE_ALPHA = 0.2;
 
-    /** Velocity drop below target that triggers recovery mode (ticks/s). */
-    public static double DISTURBANCE_THRESHOLD = 300;
-    /** How long to stay in recovery mode after a disturbance is detected (ms). */
-    public static double RECOVERY_WINDOW_MS = 150;
-    /** Recovery P — more aggressive than normal P. */
-    public static double P_RECOVERY = 0.06;
+    /** Minimum velocity drop below target magnitude that triggers recovery mode (ticks/s). */
+    public static double DETECTION_THRESHOLD = 60;
+    public static double P_RECOVERY = 0.3;
     /** Recovery I — more aggressive than normal I. */
-    public static double I_RECOVERY = 0.0002;
+    public static double I_RECOVERY = 0.00004;
+    /** How long (ms) recovery mode is held after it is first triggered. */
+    public static long RECOVERY_DURATION_MS = 300;
 
     private double integralSum;
     private double previousMeasurement;
@@ -45,9 +44,20 @@ public class DualOuttakeEx {
     private double lastOutput;
     private boolean hasMeasurement;
     private long lastUpdateNs;
+    private boolean powerOverrideActive = false;
 
     private long recoveryEndTimeMs = 0;
+    private long recoveryStartTimeMs = 0;
+    private long recoveryFinishTimeMs = 0;
+    private long recoveryStableSinceMs = 0;
     private long lastDisturbanceTimeMs = 0;
+    private long disturbanceReadySinceMs = 0;
+    private boolean disturbanceArmed = false;
+    private double lastDisturbanceDrop = 0.0;
+
+    // Recovery timer state
+    private boolean recoveryTimerActive = false;
+    private long recoveryTimerEndMs = 0;
 
     public void init(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
@@ -63,19 +73,40 @@ public class DualOuttakeEx {
 
         outtakeL.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         outtakeR.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        resetController();
     }
 
     public void setTVelocity(double targetVelocity) {
+        powerOverrideActive = false;
         TARGET_VELOCITY = targetVelocity;
     }
 
+    public void overrideSetPower(double power) {
+        double clippedPower = clip(power, -MAX_POWER, MAX_POWER);
+        powerOverrideActive = true;
+        TARGET_VELOCITY = 0.0;
+        lastOutput = clippedPower;
+        integralSum = 0.0;
+        hasMeasurement = false;
+        lastUpdateNs = 0L;
+        recoveryTimerActive = false;
+        recoveryTimerEndMs = 0;
+        outtakeL.setPower(clippedPower);
+        outtakeR.setPower(clippedPower);
+    }
+
     public void update() {
+        if (powerOverrideActive) {
+            outtakeL.setPower(lastOutput);
+            outtakeR.setPower(lastOutput);
+            return;
+        }
+
         if (Math.abs(TARGET_VELOCITY) <= 1e-6) {
             lastOutput = 0.0;
+            recoveryTimerActive = false;
+            recoveryTimerEndMs = 0;
             outtakeL.setPower(0.0);
             outtakeR.setPower(0.0);
-            resetController();
             return;
         }
 
@@ -83,13 +114,24 @@ public class DualOuttakeEx {
         double dt = getLoopTimeSeconds();
         double error = TARGET_VELOCITY - measurement;
 
-        // --- DISTURBANCE DETECTION ---
+        boolean velocityOutOfBand = !isAtVelocity(DETECTION_THRESHOLD);
         long now = System.currentTimeMillis();
-        if (error > DISTURBANCE_THRESHOLD) {
-            lastDisturbanceTimeMs = now;
-            recoveryEndTimeMs = now + (long) RECOVERY_WINDOW_MS;
+
+        // Arm the recovery timer the moment we first fall out of band.
+        if (velocityOutOfBand && !recoveryTimerActive) {
+            recoveryTimerActive = true;
+            recoveryTimerEndMs = now + RECOVERY_DURATION_MS;
         }
-        boolean inRecovery = now < recoveryEndTimeMs;
+
+        // Once the timer expires, reset — even if velocity is still out of band.
+        // A fresh disturbance will immediately re-arm it next loop.
+        if (recoveryTimerActive && now >= recoveryTimerEndMs) {
+            recoveryTimerActive = false;
+            recoveryTimerEndMs = 0;
+            integralSum = 0.0; // clear windup accumulated during recovery
+        }
+
+        boolean inRecovery = recoveryTimerActive;
 
         double activeP = inRecovery ? P_RECOVERY : P;
         double activeI = inRecovery ? I_RECOVERY : I;
@@ -124,13 +166,13 @@ public class DualOuttakeEx {
     }
 
     public boolean isInRecovery() {
-        return System.currentTimeMillis() < recoveryEndTimeMs;
+        return recoveryTimerActive;
     }
 
-    /** Returns ms since the last detected disturbance, or -1 if none has occurred. */
-    public long msSinceLastDisturbance() {
-        if (lastDisturbanceTimeMs == 0) return -1;
-        return System.currentTimeMillis() - lastDisturbanceTimeMs;
+    /** Returns how many milliseconds remain in the current recovery window, or 0 if stable. */
+    public long recoveryTimeRemainingMs() {
+        if (!recoveryTimerActive) return 0;
+        return Math.max(0, recoveryTimerEndMs - System.currentTimeMillis());
     }
 
     public double avgOuttakeVelocity() {
@@ -158,17 +200,6 @@ public class DualOuttakeEx {
             return 0.0;
         }
         return headroom / Math.abs(activeI);
-    }
-
-    private void resetController() {
-        integralSum = 0.0;
-        previousMeasurement = 0.0;
-        filteredMeasurementRate = 0.0;
-        lastOutput = 0.0;
-        hasMeasurement = false;
-        lastUpdateNs = 0L;
-        recoveryEndTimeMs = 0;
-        lastDisturbanceTimeMs = 0;
     }
 
     private static double clip(double value, double min, double max) {

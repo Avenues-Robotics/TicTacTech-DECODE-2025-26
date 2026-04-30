@@ -31,11 +31,33 @@ public class VelocityPIDFTuner {
      * noise-tolerant while still detecting a real plateau.
      */
     public static double CHARACTERIZATION_STABLE_BAND_PCT = 0.05;
+    /** Target 2% settling time for the model-based MAINTAIN PI recommendation. */
+    public static double AUTO_TUNE_MAINTAIN_SETTLING_SECONDS = 0.45;
+    /** Target first-order time constant for the model-based REV_UP P recommendation. */
+    public static double AUTO_TUNE_REV_UP_TIME_CONSTANT_SECONDS = 0.10;
+    /** Damping ratio used for the model-based MAINTAIN PI recommendation. */
+    public static double AUTO_TUNE_DAMPING_RATIO = 1.0;
+    /** Maximum pTerm contribution at full target error for MAINTAIN, in motor-power units. */
+    public static double AUTO_TUNE_MAX_MAINTAIN_P_OUTPUT = 0.45;
+    /** Maximum pTerm contribution at full target error for REV_UP, in motor-power units. */
+    public static double AUTO_TUNE_MAX_REV_UP_P_OUTPUT = 0.75;
 
     private static final double EPSILON = 1e-6;
     private static final double MIN_READY_BAND_TICKS_PER_SECOND = 5.0;
     private static final double MIN_FEEDFORWARD_ESTIMATE_VELOCITY = 1.0;
     private static final double DEFAULT_SETTLING_DURATION_SECONDS = 0.3;
+    private static final int MAX_CHARACTERIZATION_RESPONSE_SAMPLES = 600;
+    private static final double FIRST_ORDER_TAU_PERCENT = 0.6321205588;
+    private static final double HALF_RESPONSE_PERCENT = 0.5;
+    private static final double LN_TWO = 0.6931471805599453;
+    private static final double MIN_ESTIMATED_TAU_SECONDS = 0.04;
+    private static final double MAX_ESTIMATED_TAU_SECONDS = 2.0;
+    private static final double MIN_AUTO_TUNE_SETTLING_SECONDS = 0.15;
+    private static final double MAX_AUTO_TUNE_SETTLING_SECONDS = 1.5;
+    private static final double MIN_AUTO_TUNE_TIME_CONSTANT_SECONDS = 0.04;
+    private static final double MAX_AUTO_TUNE_TIME_CONSTANT_SECONDS = 0.75;
+    private static final double MIN_AUTO_TUNE_DAMPING_RATIO = 0.7;
+    private static final double MAX_AUTO_TUNE_DAMPING_RATIO = 1.5;
     private static final double RELAY_WAIT_FOR_TARGET_TIMEOUT_SECONDS = 5.0;
     private static final double RELAY_MAX_OSCILLATION_SECONDS = 15.0;
     private static final double RELAY_COMPLETE_HOLD_SECONDS = 1.0;
@@ -56,6 +78,10 @@ public class VelocityPIDFTuner {
     private final Telemetry dashboardTelemetry;
     private final DisruptionPhase disruptionPhase = new DisruptionPhase();
     private final RelayAutoTuner relayAutoTuner = new RelayAutoTuner();
+    private final double[] characterizationResponseTimesSec =
+            new double[MAX_CHARACTERIZATION_RESPONSE_SAMPLES];
+    private final double[] characterizationResponseVelocities =
+            new double[MAX_CHARACTERIZATION_RESPONSE_SAMPLES];
 
     private DcMotorEx[] motors;
     private PIDFTuningMode mode;
@@ -76,6 +102,7 @@ public class VelocityPIDFTuner {
     private boolean manualRevUpConfigured;
     private boolean manualMaintainConfigured;
     private boolean skipRelayTuning;
+    private boolean useRelayTuning;
     private double relayAmplitude;
     private double relayHysteresisBandPct;
     private double relayDetune;
@@ -100,8 +127,15 @@ public class VelocityPIDFTuner {
     private double characterizationDurationSec;
     private long characterizationStableSinceNs;
     private double characterizationStableReferenceVelocity;
+    private int characterizationResponseSampleCount;
+    private double characterizedVelocityTicksPerSecond;
+    private double estimatedTimeConstantSeconds;
     private Double configuredIntegralSumMaxOverride;
     private Double manualKfOverride;
+    private boolean configuredGainKfAvailable;
+    private GainSet modelComputedRevUpGains;
+    private GainSet modelComputedMaintainGains;
+    private String modelTuneNote = "";
     private GainSet relayComputedRevUpGains;
     private GainSet relayComputedMaintainGains;
     private String relayTuneNote = "";
@@ -125,6 +159,7 @@ public class VelocityPIDFTuner {
         ensureMotorMode();
         manualRevUpConfigured = config.hasManualRevUpGains();
         manualMaintainConfigured = config.hasManualMaintainGains();
+        configuredGainKfAvailable = config.hasConfiguredKf();
         revUpGains = resolveRevUpGains(config);
         maintainGains = resolveMaintainGains(config);
         configuredIntegralSumMaxOverride = config.integralSumMax;
@@ -140,6 +175,7 @@ public class VelocityPIDFTuner {
         disruptionReadyBandPct = config.disruptionReadyBandPct;
         disruptionDropThresholdPct = config.disruptionDropThresholdPct;
         skipRelayTuning = config.skipRelayTuning;
+        useRelayTuning = config.useRelayTuning && !config.skipRelayTuning;
         relayAmplitude = config.relayAmplitude;
         relayHysteresisBandPct = config.relayHysteresisBandPct;
         relayDetune = config.relayDetune;
@@ -197,9 +233,6 @@ public class VelocityPIDFTuner {
         double pidOutput = controller.calculate(profiledTargetTicksPerSecond, averageVelocityTicksPerSecond, loopTimeSeconds);
         lastFeedforwardTerm = computeFeedforwardTerm(profiledTargetTicksPerSecond);
         double commandedOutput = pidOutput + lastFeedforwardTerm;
-        if (!hasActiveFeedbackGains() && hasReachedOrPassedTarget(profiledTargetTicksPerSecond, averageVelocityTicksPerSecond)) {
-            commandedOutput = 0.0;
-        }
         lastOutput = clip(commandedOutput, -MAX_POWER, MAX_POWER);
         lastEstimatedKf = feedforwardCharacterized ? lastEstimatedKf : lastPhysicalKf;
         applyPower(lastOutput);
@@ -222,6 +255,12 @@ public class VelocityPIDFTuner {
         String summary = disruptionPhase.summary();
         PIDFTunerOpMode.addLine(driverTelemetry, dashboardTelemetry, "Final velocity summary");
         PIDFTunerOpMode.addLine(driverTelemetry, dashboardTelemetry, summary);
+        if (!modelTuneNote.isEmpty()) {
+            PIDFTunerOpMode.addLine(driverTelemetry, dashboardTelemetry, modelTuneNote);
+        }
+        PIDFTunerOpMode.addLine(driverTelemetry, dashboardTelemetry,
+                String.format(Locale.US, "Characterized: settledVelocity=%.1f ticks/s tau=%.3fs",
+                        characterizedVelocityTicksPerSecond, estimatedTimeConstantSeconds));
         PIDFTunerOpMode.addLine(driverTelemetry, dashboardTelemetry,
                 String.format(Locale.US, "Final MAINTAIN PIDF: kP=%.6f kI=%.6f kD=%.6f kF=%.6f",
                         maintainGains.kP, maintainGains.kI, maintainGains.kD,
@@ -237,7 +276,7 @@ public class VelocityPIDFTuner {
         GainSet gains = mode == PIDFTuningMode.MAINTAIN ? maintainGains : revUpGains;
         controller.setGains(gains.kP, mode == PIDFTuningMode.REV_UP ? 0.0 : gains.kI, gains.kD, 0.0);
         controller.integralSumMax = integralSumMax;
-        controller.derivativeAlpha = derivativeAlpha;
+        controller.derivativeAlpha = clip(derivativeAlpha, 0.0, 1.0);
     }
 
     private void updateDerivedGainState() {
@@ -273,16 +312,20 @@ public class VelocityPIDFTuner {
 
     private GainSet resolveRevUpGains(Config config) {
         if (config.hasManualRevUpGains()) return config.revUpGains;
-        return relayComputedRevUpGains != null ? relayComputedRevUpGains : config.resolveRevUpGains();
+        if (relayComputedRevUpGains != null) return relayComputedRevUpGains;
+        if (modelComputedRevUpGains != null) return modelComputedRevUpGains;
+        return config.resolveRevUpGains();
     }
 
     private GainSet resolveMaintainGains(Config config) {
         if (config.hasManualMaintainGains()) return config.maintainGains;
-        return relayComputedMaintainGains != null ? relayComputedMaintainGains : config.resolveMaintainGains();
+        if (relayComputedMaintainGains != null) return relayComputedMaintainGains;
+        if (modelComputedMaintainGains != null) return modelComputedMaintainGains;
+        return config.resolveMaintainGains();
     }
 
     private boolean shouldRunRelayTuning() {
-        return !skipRelayTuning && !(manualMaintainConfigured && manualRevUpConfigured);
+        return useRelayTuning && !(manualMaintainConfigured && manualRevUpConfigured);
     }
 
     private void transitionToPostFeedforwardPhase() {
@@ -303,8 +346,14 @@ public class VelocityPIDFTuner {
 
     private String resolveRelaySkipNote() {
         if (skipRelayTuning) return "Skipping relay auto-tune: skipRelayTuning() configured.";
+        if (!useRelayTuning) return "Using model-based auto PIDF. Relay oscillation is off by default; call useRelayTuning() to refine.";
         if (manualMaintainConfigured && manualRevUpConfigured) return "Skipping relay auto-tune: manual gains configured.";
         return "";
+    }
+
+    private void appendModelTuneNote(String message) {
+        if (message == null || message.isEmpty()) return;
+        modelTuneNote = modelTuneNote.isEmpty() ? message : modelTuneNote + " | " + message;
     }
 
     private void appendRelayTuneNote(String message) {
@@ -408,7 +457,7 @@ public class VelocityPIDFTuner {
     }
 
     private boolean usesConfiguredGainKf() {
-        return Math.abs(revUpGains.kF) > EPSILON || Math.abs(maintainGains.kF) > EPSILON;
+        return configuredGainKfAvailable;
     }
 
     private void ensureMotorMode() {
@@ -447,8 +496,14 @@ public class VelocityPIDFTuner {
         characterizationDurationSec = 0.0;
         characterizationStableSinceNs = 0L;
         characterizationStableReferenceVelocity = 0.0;
+        characterizationResponseSampleCount = 0;
+        characterizedVelocityTicksPerSecond = 0.0;
+        estimatedTimeConstantSeconds = 0.0;
         lastFeedforwardTerm = 0.0;
         lastOutput = 0.0;
+        modelComputedMaintainGains = null;
+        modelComputedRevUpGains = null;
+        modelTuneNote = "";
         relayComputedMaintainGains = null;
         relayComputedRevUpGains = null;
         relayTuneNote = "";
@@ -482,11 +537,12 @@ public class VelocityPIDFTuner {
 
     private void finishCharacterization() {
         characterizationDurationSec = Math.min(getPhaseElapsedSeconds(), CHARACTERIZATION_MAX_DURATION_SECONDS);
-        double measuredVelocity = lastMeasuredMaxVelocity > 0.0
-                ? lastMeasuredMaxVelocity : Math.abs(averageVelocityTicksPerSecond);
-        lastMeasuredMaxVelocity = measuredVelocity;
+        double measuredVelocity = resolveCharacterizedVelocity();
+        characterizedVelocityTicksPerSecond = measuredVelocity;
         lastEstimatedKf = computeCharacterizedKf(measuredVelocity);
         lastPhysicalKf = lastEstimatedKf;
+        estimatedTimeConstantSeconds = estimateTimeConstantSeconds(measuredVelocity);
+        computeModelBasedGains(measuredVelocity, estimatedTimeConstantSeconds);
         feedforwardCharacterized = true;
         tunerPhase = TunerPhase.SETTLING;
         phaseStartNs = System.nanoTime();
@@ -507,6 +563,7 @@ public class VelocityPIDFTuner {
 
     private void updateCharacterizationEstimate(double phaseElapsedSeconds) {
         double currentVelocity = Math.abs(averageVelocityTicksPerSecond);
+        recordCharacterizationResponseSample(phaseElapsedSeconds, currentVelocity);
         lastMeasuredMaxVelocity = Math.max(lastMeasuredMaxVelocity, currentVelocity);
         if (phaseElapsedSeconds < CHARACTERIZATION_MIN_DURATION_SECONDS) {
             characterizationStableSinceNs = 0L;
@@ -541,6 +598,138 @@ public class VelocityPIDFTuner {
         characterizationStableReferenceVelocity = currentVelocity;
         characterizationVelocitySum = currentVelocity;
         characterizationVelocitySamples = 1;
+    }
+
+    private void recordCharacterizationResponseSample(double phaseElapsedSeconds, double currentVelocity) {
+        if (characterizationResponseSampleCount >= MAX_CHARACTERIZATION_RESPONSE_SAMPLES) return;
+        characterizationResponseTimesSec[characterizationResponseSampleCount] = phaseElapsedSeconds;
+        characterizationResponseVelocities[characterizationResponseSampleCount] = currentVelocity;
+        characterizationResponseSampleCount++;
+    }
+
+    private double resolveCharacterizedVelocity() {
+        if (characterizationVelocitySamples > 0) {
+            return characterizationVelocitySum / characterizationVelocitySamples;
+        }
+        if (lastMeasuredMaxVelocity > 0.0) {
+            return lastMeasuredMaxVelocity;
+        }
+        return Math.abs(averageVelocityTicksPerSecond);
+    }
+
+    private double estimateTimeConstantSeconds(double settledVelocityTicksPerSecond) {
+        if (settledVelocityTicksPerSecond < MIN_FEEDFORWARD_ESTIMATE_VELOCITY
+                || characterizationResponseSampleCount == 0) {
+            return 0.0;
+        }
+        double tauThresholdTime = findResponseTime(settledVelocityTicksPerSecond * FIRST_ORDER_TAU_PERCENT);
+        if (tauThresholdTime > 0.0) {
+            return clip(tauThresholdTime, MIN_ESTIMATED_TAU_SECONDS, MAX_ESTIMATED_TAU_SECONDS);
+        }
+        double halfThresholdTime = findResponseTime(settledVelocityTicksPerSecond * HALF_RESPONSE_PERCENT);
+        if (halfThresholdTime > 0.0) {
+            return clip(halfThresholdTime / LN_TWO, MIN_ESTIMATED_TAU_SECONDS, MAX_ESTIMATED_TAU_SECONDS);
+        }
+        double fallback = characterizationDurationSec > EPSILON
+                ? characterizationDurationSec / 3.0
+                : MIN_ESTIMATED_TAU_SECONDS;
+        return clip(fallback, MIN_ESTIMATED_TAU_SECONDS, MAX_ESTIMATED_TAU_SECONDS);
+    }
+
+    private double findResponseTime(double thresholdVelocityTicksPerSecond) {
+        if (thresholdVelocityTicksPerSecond <= 0.0) return 0.0;
+        double previousTime = 0.0;
+        double previousVelocity = 0.0;
+        for (int i = 0; i < characterizationResponseSampleCount; i++) {
+            double currentTime = characterizationResponseTimesSec[i];
+            double currentVelocity = characterizationResponseVelocities[i];
+            if (currentVelocity >= thresholdVelocityTicksPerSecond) {
+                double velocityDelta = currentVelocity - previousVelocity;
+                if (Math.abs(velocityDelta) <= EPSILON) {
+                    return currentTime;
+                }
+                double fraction = (thresholdVelocityTicksPerSecond - previousVelocity) / velocityDelta;
+                return previousTime + (clip(fraction, 0.0, 1.0) * (currentTime - previousTime));
+            }
+            previousTime = currentTime;
+            previousVelocity = currentVelocity;
+        }
+        return 0.0;
+    }
+
+    private void computeModelBasedGains(double settledVelocityTicksPerSecond, double timeConstantSeconds) {
+        if (settledVelocityTicksPerSecond < MIN_FEEDFORWARD_ESTIMATE_VELOCITY
+                || timeConstantSeconds <= EPSILON) {
+            appendModelTuneNote("Model auto PIDF unavailable: characterization velocity was too small.");
+            return;
+        }
+
+        double motorGainTicksPerSecondPerPower = settledVelocityTicksPerSecond;
+        double kF = computeCharacterizedKf(settledVelocityTicksPerSecond);
+        double zeta = clip(AUTO_TUNE_DAMPING_RATIO, MIN_AUTO_TUNE_DAMPING_RATIO, MAX_AUTO_TUNE_DAMPING_RATIO);
+        double maintainSettlingSeconds = clip(
+                AUTO_TUNE_MAINTAIN_SETTLING_SECONDS,
+                MIN_AUTO_TUNE_SETTLING_SECONDS,
+                MAX_AUTO_TUNE_SETTLING_SECONDS
+        );
+        double omegaN = 4.0 / (zeta * maintainSettlingSeconds);
+        double maintainKp = Math.max(
+                0.0,
+                ((2.0 * zeta * omegaN * timeConstantSeconds) - 1.0)
+                        / motorGainTicksPerSecondPerPower
+        );
+        double maintainKi = Math.max(
+                0.0,
+                ((omegaN * omegaN * timeConstantSeconds) / motorGainTicksPerSecondPerPower)
+        );
+        GainSet computedMaintain = new GainSet(maintainKp, maintainKi, 0.0, kF);
+
+        double revUpTimeConstantSeconds = clip(
+                AUTO_TUNE_REV_UP_TIME_CONSTANT_SECONDS,
+                MIN_AUTO_TUNE_TIME_CONSTANT_SECONDS,
+                MAX_AUTO_TUNE_TIME_CONSTANT_SECONDS
+        );
+        double revUpKp = Math.max(
+                0.0,
+                ((timeConstantSeconds / revUpTimeConstantSeconds) - 1.0)
+                        / motorGainTicksPerSecondPerPower
+        );
+        GainSet computedRevUp = new GainSet(revUpKp, 0.0, 0.0, kF);
+
+        modelComputedMaintainGains = applyModelHeadroomGuard(
+                "MAINTAIN",
+                computedMaintain,
+                AUTO_TUNE_MAX_MAINTAIN_P_OUTPUT
+        );
+        modelComputedRevUpGains = applyModelHeadroomGuard(
+                "REV_UP",
+                computedRevUp,
+                AUTO_TUNE_MAX_REV_UP_P_OUTPUT
+        );
+        if (!manualMaintainConfigured) maintainGains = modelComputedMaintainGains;
+        if (!manualRevUpConfigured) revUpGains = modelComputedRevUpGains;
+        appendModelTuneNote(String.format(Locale.US,
+                "Model auto PIDF: settled velocity %.1f ticks/s, tau %.3fs, kF %.6f.",
+                settledVelocityTicksPerSecond, timeConstantSeconds, kF));
+    }
+
+    private GainSet applyModelHeadroomGuard(String label, GainSet gains, double maxProportionalOutput) {
+        double targetMagnitude = Math.abs(requestedTargetTicksPerSecond);
+        double fAtTarget = Math.abs(gains.kF * requestedTargetTicksPerSecond);
+        double headroom = Math.max(0.0, MAX_POWER - fAtTarget);
+        if (targetMagnitude <= EPSILON || headroom <= EPSILON) {
+            appendModelTuneNote(String.format(Locale.US,
+                    "%s model gains have no feedforward headroom at target; feedback P limited to zero.",
+                    label));
+            return new GainSet(0.0, gains.kI, gains.kD, gains.kF);
+        }
+        double allowedPOutput = clip(maxProportionalOutput, 0.0, MAX_POWER) * headroom;
+        double allowedKp = allowedPOutput / targetMagnitude;
+        if (gains.kP <= allowedKp) return gains;
+        appendModelTuneNote(String.format(Locale.US,
+                "%s model kP capped from %.6f to %.6f to keep pTerm inside feedforward headroom.",
+                label, gains.kP, allowedKp));
+        return new GainSet(allowedKp, gains.kI, gains.kD, gains.kF);
     }
 
     private double resolveCharacterizationStabilityBandTicks(double referenceVelocity) {
@@ -613,8 +802,17 @@ public class VelocityPIDFTuner {
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Gains/activekF", lastPhysicalKf);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Gains/estimatedkF", lastEstimatedKf);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Characterization/maxVelocityMeasured", lastMeasuredMaxVelocity);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Characterization/settledVelocityUsed", characterizedVelocityTicksPerSecond);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Characterization/estimatedTauSec", estimatedTimeConstantSeconds);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Characterization/kFComputed", lastEstimatedKf);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Characterization/progressSec", characterizationDurationSec);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/modelNote", modelTuneNote.isEmpty() ? "none" : modelTuneNote);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/maintainKP", modelComputedMaintainGains == null ? 0.0 : modelComputedMaintainGains.kP);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/maintainKI", modelComputedMaintainGains == null ? 0.0 : modelComputedMaintainGains.kI);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/maintainKD", modelComputedMaintainGains == null ? 0.0 : modelComputedMaintainGains.kD);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/revUpKP", modelComputedRevUpGains == null ? 0.0 : modelComputedRevUpGains.kP);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/revUpKI", modelComputedRevUpGains == null ? 0.0 : modelComputedRevUpGains.kI);
+        PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "AutoTune/revUpKD", modelComputedRevUpGains == null ? 0.0 : modelComputedRevUpGains.kD);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Diagnostics/loopTimeMs", lastLoopTimeSeconds * MILLIS_PER_SECOND);
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Diagnostics/phase", tunerPhase == null ? "UNINITIALIZED" : tunerPhase.name());
         PIDFTunerOpMode.addData(driverTelemetry, dashboardTelemetry, "Diagnostics/mode", mode.name());
@@ -666,14 +864,16 @@ public class VelocityPIDFTuner {
                                 CHARACTERIZATION_STABLE_WINDOW_SECONDS, CHARACTERIZATION_STABLE_BAND_PCT * PERCENT_SCALE),
                         "",
                         " Hold full power — wait for velocity to plateau",
-                        " kF computed from characterized peak speed"
+                        " kF and PID are computed from the settled response"
                 };
             case SETTLING:
                 return new String[]{
                         "════════════════════════════════",
                         " SETTLING BEFORE CLOSED LOOP",
-                        String.format(Locale.US, " Max velocity: %.1f ticks/s", lastMeasuredMaxVelocity),
+                        String.format(Locale.US, " Settled velocity: %.1f ticks/s", characterizedVelocityTicksPerSecond),
+                        String.format(Locale.US, " Estimated tau: %.3f s", estimatedTimeConstantSeconds),
                         String.format(Locale.US, " Computed kF: %.6f", lastPhysicalKf),
+                        modelTuneNote.isEmpty() ? " Model PIDF: pending" : " " + modelTuneNote,
                         String.format(Locale.US, " Pause: %.2f / %.2f s",
                                 Math.min(getPhaseElapsedSeconds(), DEFAULT_SETTLING_DURATION_SECONDS),
                                 DEFAULT_SETTLING_DURATION_SECONDS),
@@ -1117,6 +1317,7 @@ public class VelocityPIDFTuner {
         private int realDisruptionRefineIterations = 2, realDisruptionRefineSamples = 1;
         private Double manualKfOverride;
         private boolean skipRelayTuning;
+        private boolean useRelayTuning;
         private double relayAmplitude = DEFAULT_RELAY_AMPLITUDE;
         private double relayHysteresisBandPct = DEFAULT_RELAY_HYSTERESIS_BAND_PCT;
         private double relayDetune = DEFAULT_RELAY_DETUNE;
@@ -1130,6 +1331,7 @@ public class VelocityPIDFTuner {
         public Config revUpGains(double kP, double kI, double kD, double kF) { revUpGains = new GainSet(kP,kI,kD,kF); return this; }
         public Config maintainGains(double kP, double kI, double kD, double kF) { maintainGains = new GainSet(kP,kI,kD,kF); return this; }
         public Config skipRelayTuning() { skipRelayTuning = true; return this; }
+        public Config useRelayTuning() { useRelayTuning = true; skipRelayTuning = false; return this; }
         public Config relayAmplitude(double a) { relayAmplitude = clip(a, MIN_RELAY_AMPLITUDE, MAX_RELAY_AMPLITUDE); return this; }
         public Config relayHysteresisBandPct(double p) { relayHysteresisBandPct = Math.max(0.0, p); return this; }
         public Config relayDetune(double f) { relayDetune = clip(f, MIN_RELAY_DETUNE, MAX_RELAY_DETUNE); return this; }
@@ -1153,6 +1355,10 @@ public class VelocityPIDFTuner {
         GainSet resolveMaintainGains() { return maintainGains == null ? new GainSet(MAINTAIN_KP,MAINTAIN_KI,MAINTAIN_KD,MAINTAIN_KF) : maintainGains; }
         boolean hasManualRevUpGains() { return revUpGains != null; }
         boolean hasManualMaintainGains() { return maintainGains != null; }
+        boolean hasConfiguredKf() {
+            return Math.abs(resolveRevUpGains().kF) > EPSILON
+                    || Math.abs(resolveMaintainGains().kF) > EPSILON;
+        }
         double resolveIntegralSumMax() { return integralSumMax == null ? DEFAULT_INTEGRAL_SUM_MAX : integralSumMax; }
         double resolveDerivativeAlpha() { return derivativeAlpha == null ? DEFAULT_DERIVATIVE_ALPHA : derivativeAlpha; }
 

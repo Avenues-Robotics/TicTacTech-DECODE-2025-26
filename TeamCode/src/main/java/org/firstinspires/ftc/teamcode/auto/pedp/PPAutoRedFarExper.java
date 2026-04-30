@@ -29,7 +29,7 @@ public class PPAutoRedFarExper extends OpMode {
     public static boolean IS_RED = true; // Toggle this for Red side
     public static double FIELD_SIZE = 144.0;
 
-    public static double OUTTAKE_SPEED = 620;
+    public static double OUTTAKE_SPEED = 693;
     public static double DRAWBACK_POWER = 0.6;
     public static double SHOOT_POWER = -1.0;
 

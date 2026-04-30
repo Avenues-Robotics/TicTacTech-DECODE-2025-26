@@ -305,7 +305,8 @@ Tradeoff:
 - gain numbers often look numerically "small"
 - default gains cannot be safely guessed across radically different mechanisms
 
-That tradeoff is exactly why the relay auto-tuning system was added.
+That tradeoff is exactly why the tuner now characterizes the mechanism first and computes
+model-based starting gains from the measured response.
 
 ### Major subsystems inside the class
 
@@ -314,11 +315,12 @@ The class is best understood as several interacting systems:
 1. Gain and mode management
 2. Feedforward source selection
 3. Startup characterization
-4. Relay auto-tuning
-5. Closed-loop running control
-6. Disruption measurement
-7. Telemetry and status rendering
-8. Builder/config resolution
+4. Model-based PIDF recommendation
+5. Optional relay auto-tuning
+6. Closed-loop running control
+7. Disruption measurement
+8. Telemetry and status rendering
+9. Builder/config resolution
 
 ### Velocity tuner lifecycle
 
@@ -362,19 +364,24 @@ Each phase has different output behavior.
 Purpose:
 
 - drive the mechanism at full power
-- estimate steady-state max velocity
+- estimate settled full-power velocity
+- estimate the first-order response time constant
 - compute a physical `kF`
+- compute initial `REV_UP` and `MAINTAIN` PIDF recommendations
 
 Behavior:
 
 - applies `MAX_POWER`
 - samples the final portion of the run
-- computes `kF = 1 / maxVelocity`
+- computes `kF = 1 / settledVelocity`
+- records the response curve and estimates `tau` from the 63.2 percent rise time
+- computes conservative raw-unit feedback gains from the measured model
 
 Why:
 
 - velocity control benefits enormously from feedforward
 - without a reasonable `kF`, the PID loop has to do too much work
+- forcing relay oscillation on every run is noisy and can be hard on FTC mechanisms
 
 #### `SETTLING`
 
@@ -387,13 +394,13 @@ Behavior:
 
 - output is zero
 - controller is reset
-- after the pause, the tuner either enters relay tuning or skips directly to running
+- after the pause, the tuner enters normal running with model-computed gains unless relay tuning was explicitly enabled
 
 #### `RELAY_TUNING`
 
 Purpose:
 
-- automatically estimate mechanism-specific gains
+- optionally refine mechanism-specific gains by forcing oscillation
 
 Behavior:
 
@@ -404,7 +411,8 @@ Behavior:
 - ultimate gain and period are estimated
 - conservative `MAINTAIN` and `REV_UP` gains are computed
 
-This is the package's answer to the problem that a single default `kP` cannot fit both a fast flywheel and a slow turret.
+Relay tuning is off by default. Enable it with `useRelayTuning()` only when the model-based
+result is not good enough and the mechanism can safely oscillate around the target.
 
 #### `RELAY_COMPLETE`
 
@@ -690,7 +698,10 @@ Builder methods:
   - optional manual `MAINTAIN` gain set
 
 - `skipRelayTuning()`
-  - bypasses relay tuning entirely
+  - explicit no-op for the default path, where relay tuning is already off
+
+- `useRelayTuning()`
+  - enables the optional relay oscillation pass after model-based characterization
 
 - `relayAmplitude(double)`
   - sets relay strength
@@ -1235,12 +1246,13 @@ Recommended flow:
 
 1. Start with a sample OpMode like `TuneFlywheelNew`
 2. Set target speed
-3. Let characterization compute `kF`
-4. Let relay auto-tune compute starting gains
+3. Let characterization compute `kF`, `tau`, and model-based PIDF
+4. Let the tuner run with those computed starting gains
 5. Test `REV_UP`
 6. Test `MAINTAIN`
-7. Run disruption sampling if the mechanism must survive disturbances
-8. Copy final values into the mechanism class that will use them in production
+7. Enable `useRelayTuning()` only if the model-based result still needs refinement
+8. Run disruption sampling if the mechanism must survive disturbances
+9. Copy final values into the mechanism class that will use them in production
 
 ### Position mechanism workflow
 
