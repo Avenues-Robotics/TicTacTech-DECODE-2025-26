@@ -36,7 +36,7 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
     public static boolean USE_LEDS = true;
     public static boolean useTelemetry = true;
     public static PIDFController headingPIDF;
-    public static PIDFCoefficients headingPIDFCoe = new PIDFCoefficients(0.9,0,0.043,0.042);
+    public static PIDFCoefficients headingPIDFCoe = new PIDFCoefficients(0.85,0.01,0.049,0.09);
     public static double intakeSpeed = 1.0;
     public static boolean useOuttake = true;
     public static boolean useZones = false;
@@ -49,7 +49,7 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
     private LEDController leds;
 
     private boolean fastMode = false;
-    private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false, backHeld = false, leftdpadHeld = false, rightdpadHeld = false;
+    private boolean triggerHeld = false, bumperHeld = false, optionsHeld = false, backHeld = false, leftdpadHeld = false, rightdpadHeld = false, downdpadHeld = false, updpadHeld = false;
     public static boolean brodOn = false;
     private boolean isRedAlliance = true;
 
@@ -129,6 +129,7 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
         if (gamepad1.options && !optionsHeld) {
             follower.setPose(new Pose(RESET_X_ALT, RESET_Y, Math.toRadians(RESET_H_DEG)));
             OdomAimingSystem.TARGET_X = isRedAlliance ? RED_TARGET_X : BLUE_TARGET_X;
+            OdomAimingSystem.Y_INTERCEPT = 418;
             optionsHeld = true;
         } else if (!gamepad1.options) {
             optionsHeld = false;
@@ -148,9 +149,25 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
             rightdpadHeld = false;
         }
 
+        if (gamepad2.dpad_down && !downdpadHeld) {
+            OdomAimingSystem.Y_INTERCEPT -= 5;
+            downdpadHeld = true;
+        } else if (!gamepad2.dpad_down){
+            downdpadHeld = false;
+        }
+
+        if (gamepad2.dpad_up && !updpadHeld) {
+            OdomAimingSystem.Y_INTERCEPT += 5;
+            updpadHeld = true;
+        } else if (!gamepad2.dpad_up){
+            updpadHeld = false;
+        }
+
+
         if (gamepad1.back && !backHeld) {
             follower.setPose(new Pose(RESET_X, RESET_Y, Math.toRadians(RESET_H_DEG)));
             OdomAimingSystem.TARGET_X = isRedAlliance ? RED_TARGET_X : BLUE_TARGET_X;
+            OdomAimingSystem.Y_INTERCEPT = 418;
             backHeld = true;
         } else if (!gamepad1.back) {
             backHeld = false;
@@ -171,8 +188,6 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
 
         // --- PID ROTATION ---
         double r;
-
-
 
         if (gamepad1.left_trigger >= 0.1) {
             if (!(Math.abs(aim.error) < HEADING_TOLERANCE_RAD)){
@@ -273,6 +288,7 @@ public class DriveTeleOp2ControllersOdometryOldPIDF extends OpMode {
             telemetry.addData("In Zone", aim.isInFarZone || aim.isInCloseZone);
             telemetry.addData("Outtake Dif", outtake.outtakeDif());
             telemetry.addData("X_TARGET", OdomAimingSystem.TARGET_X);
+            telemetry.addData("Y_INTERCEPT", OdomAimingSystem.Y_INTERCEPT);
 
             telemetry.update();
             lastTelemetryTime = System.currentTimeMillis();

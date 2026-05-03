@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
-import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
+import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeOld;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -22,7 +22,7 @@ public class PPAutoBlueCloseExper extends OpMode {
     private Paths paths;
 
     private final ArcadeDrive robot = new ArcadeDrive();
-    private final DualOuttakeEx outtake = new DualOuttakeEx();
+    private final DualOuttakeOld outtake = new DualOuttakeOld();
 
     public static double OUTTAKE_SPEED = 560;
     public static double DRAWBACK_POWER = 0.6;

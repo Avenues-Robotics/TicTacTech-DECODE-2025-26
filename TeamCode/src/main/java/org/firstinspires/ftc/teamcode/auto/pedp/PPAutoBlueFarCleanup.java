@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.mechanisms.ArcadeDrive;
-import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeEx;
+import org.firstinspires.ftc.teamcode.mechanisms.DualOuttakeOld;
 import org.firstinspires.ftc.teamcode.memory.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -24,19 +24,21 @@ public class PPAutoBlueFarCleanup extends OpMode {
     private Paths paths;
 
     private final ArcadeDrive robot = new ArcadeDrive();
-    private final DualOuttakeEx outtake = new DualOuttakeEx();
+    private final DualOuttakeOld outtake = new DualOuttakeOld();
 
     public static boolean IS_RED = false;
     public static double FIELD_SIZE = 144.0;
 
-    public static double OUTTAKE_SPEED = 660;
+    public static double OUTTAKE_SPEED = 636;
     public static double DRAWBACK_POWER = 0.6;
     public static double SHOOT_POWER = -1.0;
 
     public static double PAUSE_BEFORE_SHOOT = 1.5;
     public static double PAUSE_BEFORE_INTAKE = 0.5;
     public static double SHOOT_TIME = 1.9;
-    public static int CLEANUP_CYCLES = 2;
+
+    public static double SHOOT_ROTATION = 111;
+    public static int CLEANUP_CYCLES = 1;
 
     public enum PathState {
         PATH_1, SHOOT_1,
@@ -231,11 +233,11 @@ public class PPAutoBlueFarCleanup extends OpMode {
         public Paths(Follower follower) {
             // Blue Side Raw Coordinates
             Pose pStart = new Pose(56.000, 8.000, Math.toRadians(90));
-            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(112));
+            Pose pShoot = new Pose(55.391, 17.721, Math.toRadians(SHOOT_ROTATION));
             Pose pIntakeArea = new Pose(46.578, 35.030, Math.toRadians(0));
-            Pose pIntakeDeep = new Pose(16.114, 35.254, Math.toRadians(0));
-            Pose pFarArea = new Pose(16.807, 29.000, Math.toRadians(90));
-            Pose pFarDeep = new Pose(14.089, 9.134, Math.toRadians(90));
+            Pose pIntakeDeep = new Pose(13.114, 35.254, Math.toRadians(0));
+            Pose pFarArea = new Pose(11.807, 29.000, Math.toRadians(90));
+            Pose pFarDeep = new Pose(11.089, 9.134, Math.toRadians(90));
             Pose pCleanupEnd = new Pose(9.193, 8.945, Math.toRadians(0));
             Pose pPark = new Pose(55.667, 36.695, Math.toRadians(90));
 
@@ -243,7 +245,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
             Path1 = follower.pathBuilder()
                     .addPath(new BezierLine(mStartPose, mirrorPose(pShoot)))
-                    .setLinearHeadingInterpolation(mStartPose.getHeading(), Math.toRadians(110)).build();
+                    .setLinearHeadingInterpolation(mStartPose.getHeading(), Math.toRadians(114)).build();
 
             Path2 = follower.pathBuilder()
                     .addPath(new BezierLine(mirrorPose(pShoot), mirrorPose(pIntakeArea)))
@@ -255,7 +257,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
             Path4 = follower.pathBuilder()
                     .addPath(new BezierLine(mirrorPose(pIntakeDeep), mirrorPose(pShoot)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(110)).build();
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(114)).build();
 
             Path5 = follower.pathBuilder()
                     .addPath(new BezierLine(mirrorPose(pShoot), mirrorPose(pFarArea)))
@@ -267,7 +269,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
 
             Path7 = follower.pathBuilder()
                     .addPath(new BezierLine(mirrorPose(pFarDeep), mirrorPose(pShoot)))
-                    .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(110)).build();
+                    .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(114)).build();
 
             // Path 8: Cleanup Curve
             Path8 = follower.pathBuilder()
@@ -277,7 +279,7 @@ public class PPAutoBlueFarCleanup extends OpMode {
             // Path 9: Final Score Return
             Path9 = follower.pathBuilder()
                     .addPath(new BezierLine(mirrorPose(pCleanupEnd), mirrorPose(pShoot)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(110)).build();
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(114)).build();
 
             // Path 10: Park
             Path10 = follower.pathBuilder()
